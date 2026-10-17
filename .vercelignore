@@ -1,0 +1,21 @@
+# Deploy from THIS active frontend folder, not the workspace or nested duplicate.
+.git
+.env
+.env.*
+**/*.pem
+**/*.key
+**/*service-account*.json
+**/credentials*.json
+**/*.sqlite*
+**/*.db
+node_modules
+dist
+build
+coverage
+backend
+superbus
+sql
+qa
+**/*.before-*
+**/__pycache__
+**/*.pyc

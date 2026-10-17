@@ -1,0 +1,43 @@
+# Local dependencies, builds and tooling
+/node_modules/
+/dist/
+/build/
+/coverage/
+/.vercel/
+.pnp*
+*.log
+.DS_Store
+Thumbs.db
+
+# Environment files and credentials are never part of this repository
+.env
+.env.*
+*.env
+*.pem
+*.key
+*service-account*.json
+credentials*.json
+*.sqlite*
+*.db
+
+# Exclude the development workspace's duplicates, snapshots and runtime files
+/backend/
+/superbus/
+/device/
+/sql/
+/PI */
+/pi*-runtime-snapshot/
+/.integrity-qa/
+/.marker-qa/
+/.pin-qa/
+/.shared-qa/
+/.tail-qa/
+/qa/.results/
+/qa/staged-builds/
+/qa/runtimes/
+*.before-*
+App_before*
+*.bak
+*.backup*
+__pycache__/
+*.pyc
