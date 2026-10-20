@@ -1,6 +1,12 @@
 import { cameraReadingsFeatureEnabled, deriveCameraPanel, validCameraCalibration } from './cameraReadings';
 import { createSupabaseCameraReadingsService } from './cameraReadingsService';
 import { cameraSnapshot, TEST_CALIBRATION as CAL, TEST_TIME as TIME } from './testing/fixtures';
+
+test('mixed source epochs are withheld instead of appearing as one six-gauge capture', () => {
+  const snapshot = cameraSnapshot(); const first = snapshot.readings[0];
+  snapshot.readings.push({ ...first, gauge_key: 'oilPressure', captured_at: new Date(TIME - 2000).toISOString() });
+  expect(deriveCameraPanel(snapshot, 'test-bus', CAL, TIME).status).toBe('Invalid');
+});
 const derive = (snapshot = cameraSnapshot(), policy = CAL, now = TIME) => deriveCameraPanel(snapshot, 'test-bus', policy, now);
 test('camera feature is default-OFF; only explicit true opts in', () => {
   for (const value of [undefined, '', 'false', 'TRUE', true, '1']) expect(cameraReadingsFeatureEnabled(value)).toBe(false);

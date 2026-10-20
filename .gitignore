@@ -34,6 +34,7 @@ credentials*.json
 /.tail-qa/
 /qa/.results/
 /qa/staged-builds/
+/captured-images/
 /qa/runtimes/
 *.before-*
 App_before*

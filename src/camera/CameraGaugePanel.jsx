@@ -4,7 +4,8 @@ import { pendingCameraReadingsService } from './cameraReadingsService';
 import { observeCameraDashboard } from './cameraMetrics';
 
 export default function CameraGaugePanel({ busId, enabled = false, service = pendingCameraReadingsService,
-  calibration = null, renderGauge, clock = Date.now, timeoutMs = 5000, metrics }) {
+  calibration = null, renderGauge, clock = Date.now, timeoutMs = 5000, metrics,
+  placeholderGauges = [], renderStatus, gridClassName, expectedCameraId = null, refreshIntervalMs = 0 }) {
   const [request, setRequest] = useState({ busId: null, snapshot: null, status: 'Loading' });
   const [refresh, setRefresh] = useState(0);
   const [now, setNow] = useState(clock);
@@ -12,7 +13,7 @@ export default function CameraGaugePanel({ busId, enabled = false, service = pen
   useEffect(() => {
     if (!enabled || !busId || !validCameraCalibration(calibration)) return undefined;
     let active = true; const controller = new AbortController(); let timeout;
-    setRequest({ busId, snapshot: null, status: 'Loading' });
+    setRequest((current) => ({ busId, snapshot: current.busId === busId ? current.snapshot : null, status: 'Loading' }));
     Promise.race([Promise.resolve().then(() => service.readLatest(busId, { signal: controller.signal })),
       new Promise((_, reject) => { timeout = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, Math.min(5000, Math.max(1, timeoutMs))); })])
       .then((snapshot) => { if (active) { setRequest({ busId, snapshot, status: 'ready' }); setNow(clock()); } })
@@ -20,16 +21,31 @@ export default function CameraGaugePanel({ busId, enabled = false, service = pen
       .finally(() => clearTimeout(timeout));
     return () => { active = false; controller.abort(); clearTimeout(timeout); };
   }, [enabled, busId, service, calibration, refresh, clock, timeoutMs]);
-  // Age locally; no polling/Realtime traffic. Explicit refresh performs bounded reads.
+  // Optional live-monitor cadence: wait for the previous bounded read to finish.
+  // Existing panels remain manual-refresh only. Never poll an unapproved source.
+  useEffect(() => {
+    if (!enabled || !busId || !validCameraCalibration(calibration) || !Number.isFinite(refreshIntervalMs)
+      || refreshIntervalMs <= 0 || request.busId !== busId || request.status === 'Loading') return undefined;
+    const timer = setTimeout(() => {
+      if (!document.hidden) setRefresh((value) => value + 1);
+    }, Math.min(60000, Math.max(5000, refreshIntervalMs)));
+    const visible = () => { if (!document.hidden) { clearTimeout(timer); setRefresh((value) => value + 1); } };
+    document.addEventListener('visibilitychange', visible);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', visible); };
+  }, [enabled, busId, calibration, refreshIntervalMs, request]);
+  // Local ageing never adds reads. Only explicit/opt-in refresh fetches data.
   useEffect(() => {
     if (!enabled) return undefined;
     const timer = setInterval(() => setNow(clock()), 1000);
     return () => clearInterval(timer);
   }, [enabled, clock]);
   const state = !validCameraCalibration(calibration) ? deriveCameraPanel(null, busId, calibration, now)
-    : request.busId !== busId || request.status === 'Loading' ? cameraPanelState('Loading', 'Loading numerical gauge readings…')
+    : request.busId !== busId || request.status === 'Loading' && !request.snapshot ? cameraPanelState('Loading', 'Loading numerical gauge readings…')
     : request.status === 'Unavailable' ? cameraPanelState('Unavailable', 'Camera readings are unavailable. No normal/zero values are assumed.')
-    : deriveCameraPanel(request.snapshot, busId, calibration, now);
+    : deriveCameraPanel(request.snapshot, busId, calibration, now, expectedCameraId);
+  const visibleGauges = placeholderGauges.length
+    ? placeholderGauges.map((placeholder) => state.gauges.find((gauge) => gauge.gaugeKey === placeholder.gaugeKey) || placeholder)
+    : state.gauges;
   useEffect(() => {
     if (!enabled || !metrics || !validCameraCalibration(calibration) || request.busId !== busId) return;
     const prior = measured.current;
@@ -56,11 +72,11 @@ export default function CameraGaugePanel({ busId, enabled = false, service = pen
   }, [enabled, metrics, calibration, busId, request, state.status, state.gauges, clock]);
   if (!enabled) return null;
   return <div className="col-span-full min-w-0" aria-label="Camera gauge readings" data-testid="camera-gauge-panel">
-    <div role="status" className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+    {renderStatus ? renderStatus(state) : <div role="status" className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
       <p className="font-extrabold">{state.status}</p><p>{state.message}</p>
-    </div>
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {state.gauges.map((gauge) => <div key={gauge.id}>{renderGauge ? renderGauge(gauge) : <div role="group" aria-label={gauge.label}>
+    </div>}
+    <div className={gridClassName || 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'}>
+      {visibleGauges.map((gauge) => <div key={gauge.id}>{renderGauge ? renderGauge(gauge) : <div role="group" aria-label={gauge.label}>
         <h4>{gauge.label}</h4><p>{gauge.numericValue != null ? `${gauge.numericValue} ${gauge.unit}` : 'Awaiting Data'}</p><p>{gauge.status}</p>
         {gauge.capturedAt && <p>Captured {gauge.capturedAt} · {Math.floor(gauge.ageMs / 1000)}s ago</p>}
       </div>}</div>)}

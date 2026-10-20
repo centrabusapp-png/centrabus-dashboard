@@ -9,8 +9,9 @@ const operationTitles = { add: 'Add Wi-Fi Network', edit: 'Edit Wi-Fi Network', 
 
 // Inside the existing active/admin AuthGate. This prop is UI gating only;
 // future delivery must independently verify the bearer and CURRENT admin profile.
-export default function WifiManagement({ authorized = false, service = pendingWifiService }) {
-  const [deviceId, setDeviceId] = useState(WIFI_DEVICES[0].id);
+export default function WifiManagement({ authorized = false, service = pendingWifiService, deviceId: selectedDeviceId, embedded = false }) {
+  const [ownDeviceId, setDeviceId] = useState(WIFI_DEVICES[0].id);
+  const deviceId = selectedDeviceId ?? ownDeviceId;
   const [state, setState] = useState(pendingWifiState(deviceId));
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -58,6 +59,7 @@ export default function WifiManagement({ authorized = false, service = pendingWi
   }, [state]);
 
   useEffect(() => { if (!authorized) closeChange(); }, [authorized]);
+  useEffect(() => { closeChange(); }, [deviceId]);
   useEffect(() => {
     if (change && authorized) {
       wasOpen.current = true;
@@ -101,7 +103,7 @@ export default function WifiManagement({ authorized = false, service = pendingWi
   const profiles = currentState.profiles;
 
   return (
-    <section className="min-w-0 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="wifi-management-title">
+    <section className={embedded ? 'min-w-0 bg-white p-4 sm:p-5' : 'min-w-0 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5'} aria-labelledby="wifi-management-title">
       <div inert={change ? true : undefined}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
@@ -111,14 +113,18 @@ export default function WifiManagement({ authorized = false, service = pendingWi
           <button type="button" className={secondaryButton} disabled={loading} onClick={() => setRefresh((value) => value + 1)}>{loading ? 'Checking…' : 'Refresh status'}</button>
         </div>
         <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">Device changes are disabled until secure integration and local rollback are verified. Dialogs preview changes only; nothing is saved or sent.</p>
-        <div className="mt-4 min-w-0 sm:max-w-sm">
+        {!embedded && <div className="mt-4 min-w-0 sm:max-w-sm">
           <label className="block text-xs font-bold text-slate-600" htmlFor="wifi-device">GPS device</label>
           <select id="wifi-device" className={inputStyle + ' mt-1.5'} value={deviceId} onChange={(event) => { closeChange(); setDeviceId(event.target.value); }}>{WIFI_DEVICES.map((device) => <option key={device.id} value={device.id}>{device.label}</option>)}</select>
-        </div>
+        </div>}
         <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 p-3.5 text-xs lg:grid-cols-4">
           {[['Wi-Fi', status.wifi], ['Internet', status.internet], ['Management', loading ? 'Checking…' : status.management], ['Last configuration', status.configuration]].map(([label, value]) => <div key={label} className="min-w-0"><dt className="font-bold text-slate-500">{label}</dt><dd className="mt-1 break-words font-semibold text-slate-800">{value}</dd></div>)}
         </dl>
         <p className="mt-2 text-xs text-slate-500">Only authenticated device reports can confirm connectivity or configuration. GPS activity is not Wi-Fi status.</p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+          <div className="min-w-0 flex-1"><h3 className="text-sm font-extrabold text-slate-800">Nearby Wi-Fi networks</h3><p id="wifi-scan-help" className="mt-1 text-xs leading-relaxed text-slate-500">Scanning must run on {deviceId}, not this browser. Secure Pi scanning is not connected yet.</p></div>
+          <button type="button" disabled aria-describedby="wifi-scan-help" className={secondaryButton + ' cursor-not-allowed'}>Scan networks</button>
+        </div>
         <div className="mt-5 border-t border-slate-100 pt-4">
           <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-extrabold text-slate-800">Saved networks</h3><button type="button" onClick={(event) => openChange('add', event)} className="w-full rounded-xl bg-[#8E1F2F] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#B22B34] sm:w-auto">Add Wi-Fi Network</button></div>
           <p className="mt-2 text-xs text-slate-500">Last reported device profiles · higher priority is preferred. Existing passwords are never displayed.</p>

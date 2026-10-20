@@ -32,7 +32,7 @@ export function validCameraCalibration(policy) {
     && Number.isFinite(policy.maxFutureSkewMs) && policy.maxFutureSkewMs >= 0;
 }
 export function cameraPanelState(status, message, gauges = []) { return { status, message, gauges }; }
-export function deriveCameraPanel(snapshot, busId, policy, nowMs = Date.now()) {
+export function deriveCameraPanel(snapshot, busId, policy, nowMs = Date.now(), expectedCameraId = null) {
   if (!validCameraCalibration(policy)) return cameraPanelState('Awaiting Data', 'Approved calibration and gauge units are required. Alerts remain inactive.');
   if (!snapshot || !Array.isArray(snapshot.cameras) || !Array.isArray(snapshot.readings)
     || snapshot.cameras.length > 3 || snapshot.readings.length > 6) return cameraPanelState('Invalid', 'Camera response is invalid.');
@@ -42,6 +42,12 @@ export function deriveCameraPanel(snapshot, busId, policy, nowMs = Date.now()) {
   if (cameras.length > 1) return cameraPanelState('Invalid', 'Multiple cameras are assigned. A primary source must be approved.');
   if (!cameras.length) return cameraPanelState('Awaiting Data', 'No enabled camera is assigned to this bus.');
   const cameraId = cameras[0].camera_id;
+  if (expectedCameraId != null && cameraId !== expectedCameraId) {
+    return cameraPanelState('Invalid', 'The preview and gauge readings identify different cameras. Readings are withheld.');
+  }
+  if (new Set(snapshot.readings.map((row) => row?.captured_at)).size > 1) {
+    return cameraPanelState('Invalid', 'Readings identify different capture epochs. Mixed observations are withheld.');
+  }
   const seen = new Set(); const values = new Map();
   for (const row of snapshot.readings) {
     if (!row || Object.keys(row).some((key) => !CAMERA_READING_COLUMNS.includes(key))) return cameraPanelState('Invalid', 'Camera response contains unsupported fields.');
@@ -61,7 +67,7 @@ export function deriveCameraPanel(snapshot, busId, policy, nowMs = Date.now()) {
     seen.add(row.gauge_key);
     if (confidence < rule.minConfidence) continue;
     const ageMs = Math.max(0, nowMs - capturedMs);
-    values.set(row.gauge_key, { source: 'camera', id: `${cameraId}:${row.gauge_key}`, gaugeKey: row.gauge_key,
+    values.set(row.gauge_key, { source: 'camera', id: `${cameraId}:${row.gauge_key}`, cameraId, gaugeKey: row.gauge_key,
       label: CAMERA_GAUGE_LABELS[row.gauge_key], numericValue: value, unit: row.unit, confidence,
       capturedAt: row.captured_at, ageMs, status: ageMs > policy.staleAfterMs ? 'Stale' : 'Reading Available' });
   }

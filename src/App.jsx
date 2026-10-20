@@ -37,9 +37,14 @@ import { BACKEND_CONFIG } from './config/backendConfig';
 import { archiveBus, registerBus, updateBusPlateNumber } from './services/busManagement';
 import LoadablePanel from './LoadablePanel';
 import { recordGpsLatency } from './gpsLatency';
-import WifiManagement from './settings/WifiManagement';
+import DeviceSetup from './settings/DeviceSetup';
 import { createWifiStatusService } from './settings/wifiStatusService';
+import { createRemoteWifiService } from './settings/remoteWifiService';
+import { createDevicePresenceService } from './settings/devicePresenceService';
 import CameraGaugePanel from './camera/CameraGaugePanel';
+import LiveCameraView from './camera/LiveCameraView';
+import { createCameraFrameService } from './camera/cameraFrameService';
+import CameraFrameGaugePanel from './camera/CameraFrameGaugePanel';
 import { cameraReadingsFeatureEnabled } from './camera/cameraReadings';
 
 const ROUTE_DEVIATION_DEFAULT_M = 100;
@@ -56,6 +61,10 @@ const WIFI_STATUS_SERVICE = createWifiStatusService({
   config: BACKEND_CONFIG,
   getSession: () => supabase.auth.getSession(),
 });
+const DEVICE_PRESENCE_SERVICE = createDevicePresenceService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
+const REMOTE_WIFI_SERVICE = createRemoteWifiService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
+const CAMERA_FRAME_SERVICE = createCameraFrameService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession(),
+  enabled: process.env.NODE_ENV !== 'production' && process.env.VITE_CAMERA_FRAMES_ENABLED === 'true' });
 const CENTRABUS_LOCKED_LOGO_SRC = '/centrabus-locked-logo.png';
 const loadGpsHistoryExplorer = () => import('./records/GpsHistoryExplorer');
 const NOTIFICATION_PREFERENCES_KEY = 'centrabus.notificationPreferences';
@@ -1720,6 +1729,7 @@ export function normalizeLiveGpsRecord(record = {}) {
   } = record || {};
 
   return {
+    ...(typeof record?.deviceId === 'string' && record.deviceId ? { deviceId: record.deviceId } : {}),
     latitude,
     longitude,
     liveLatitude,
@@ -1755,6 +1765,7 @@ function supabaseLivePositionRowToGpsRecord(row = {}) {
     : {};
 
   return {
+    ...(typeof row?.device_id === 'string' && row.device_id ? { deviceId: row.device_id } : {}),
     latitude: row?.latitude,
     longitude: row?.longitude,
     liveLatitude: row?.live_latitude,
@@ -2926,7 +2937,7 @@ function getVehicleConditionDisplayBus(bus) {
 }
 
 export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashboard', onNavigate,
-  cameraEnabled = cameraReadingsFeatureEnabled(), cameraService, cameraCalibration }) {
+  cameraEnabled = cameraReadingsFeatureEnabled(), cameraService, cameraCalibration, frameService = CAMERA_FRAME_SERVICE }) {
   const bus = getVehicleConditionDisplayBus(suppliedBus);
   const [refreshState, setRefreshState] = useState({ status: 'idle', message: '' });
 
@@ -3040,7 +3051,8 @@ export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashb
              <h3 className="text-[13px] font-extrabold text-slate-900 uppercase tracking-wide">Gauge Panel Readings</h3>
            </div>
            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-              {cameraEnabled ? <CameraGaugePanel enabled busId={bus.id} service={cameraService} calibration={cameraCalibration} renderGauge={(gauge) => <GaugeCard gauge={gauge} />} />
+              {frameService?.enabled ? <CameraFrameGaugePanel key={bus.id} busId={bus.id} service={frameService} />
+              : cameraEnabled ? <CameraGaugePanel enabled busId={bus.id} service={cameraService} calibration={cameraCalibration} renderGauge={(gauge) => <GaugeCard gauge={gauge} />} />
               : (bus.gaugeReadings || []).length > 0 ? [...bus.gaugeReadings].sort((a,b) => a.displayOrder - b.displayOrder).map(gauge => (
                 <GaugeCard key={gauge.id} gauge={gauge} />
               )) : (
@@ -4006,6 +4018,7 @@ function ActiveAlertsPanel({ activeAlerts, buses, onAcknowledge, onNavigate }) {
 const navigationItems = [
   ['dashboard', 'Dashboard', LayoutDashboard],
   ['map', 'Live Map', Map],
+  ['live-camera', 'Live Camera View', Camera],
   ['vehicle-condition', 'Vehicle Condition', Activity],
   ['alerts', 'Alert Center', Bell],
   ['records', 'Records', FileClock],
@@ -4461,7 +4474,7 @@ function BusManagement({ buses, status }) {
   );
 }
 
-export function SettingsPage({ user, onLogout, buses, busesStatus }) {
+export function SettingsPage({ user, onLogout, buses, busesStatus, gpsByBusId, gpsRealtime, backendPoll, gpsNowMs }) {
   const [preferences, setPreferences] = useState(() => {
     try {
       const savedPreferences = window.localStorage.getItem(NOTIFICATION_PREFERENCES_KEY);
@@ -4494,6 +4507,8 @@ export function SettingsPage({ user, onLogout, buses, busesStatus }) {
 
   return (
     <section className="space-y-4">
+      <DeviceSetup authorized={Boolean(user?.id)} wifiService={WIFI_STATUS_SERVICE} gpsByBusId={gpsByBusId}
+        gpsRealtime={gpsRealtime} backendPoll={backendPoll} nowMs={gpsNowMs} busesStatus={busesStatus} presenceService={DEVICE_PRESENCE_SERVICE} remoteWifiService={REMOTE_WIFI_SERVICE} />
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]">
         <section className="rounded-[24px] border bg-white p-5 shadow-sm">
           <h2 className="text-[15px] font-extrabold">Administrator Profile</h2>
@@ -4521,8 +4536,6 @@ export function SettingsPage({ user, onLogout, buses, busesStatus }) {
           </div>
         </section>
       </div>
-
-      <WifiManagement authorized={Boolean(user?.id)} service={WIFI_STATUS_SERVICE} />
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(280px,0.65fr)_minmax(0,1.35fr)]">
         <BusRegistrationForm />
@@ -4722,8 +4735,8 @@ function VehicleConditionPage({ buses, fleetStatus, selectedBus, selectedBusId, 
   );
 }
 
-function useUrlState() {
-  const pathPage = { '/live-map': 'map', '/alerts': 'alerts', '/vehicle-condition': 'vehicle-condition' };
+export function useUrlState() {
+  const pathPage = { '/live-map': 'map', '/live-camera': 'live-camera', '/alerts': 'alerts', '/vehicle-condition': 'vehicle-condition' };
   const [urlParams, setUrlParams] = useState(() => new URLSearchParams(window.location.search));
 
   useEffect(() => {
@@ -4745,7 +4758,7 @@ function useUrlState() {
       }
     }
     const nextPage = params.page || newParams.get('page') || pathPage[window.location.pathname] || 'dashboard';
-    const nextPath = { map: '/live-map', alerts: '/alerts', 'vehicle-condition': '/vehicle-condition' }[nextPage] || '/';
+    const nextPath = { map: '/live-map', 'live-camera': '/live-camera', alerts: '/alerts', 'vehicle-condition': '/vehicle-condition' }[nextPage] || '/';
     if (nextPath !== '/' && newParams.has('page')) { newParams.delete('page'); changed = true; }
     if (changed || window.location.pathname !== nextPath) {
       const qs = newParams.toString();
@@ -4838,15 +4851,17 @@ export function AuthorizedDashboard({ user }) {
   const pageHeaders = {
     dashboard: { title: 'Monitoring Overview', subtitle: 'Live fleet, route, vehicle condition, and system status' },
     map: { title: 'Live Map Monitoring', subtitle: 'Real-time GPS tracking and route compliance' },
+    'live-camera': { title: 'Live Camera View', subtitle: 'Pi1 and Pi2 dashboard camera monitoring' },
     'vehicle-condition': { title: 'Vehicle Condition Monitoring', subtitle: 'Gauge panel sensor data across the fleet' },
     alerts: { title: 'Alert Center', subtitle: 'Manage vehicle condition, route, and connectivity alerts' },
     records: { title: 'Activity Records', subtitle: 'Event logs and synchronization status' },
-    settings: { title: 'Settings', subtitle: 'Administrator preferences and notifications' },
+    settings: { title: 'Settings', subtitle: 'Device setup, administrator preferences and notifications' },
   };
 
   let pageContent;
   switch (activePage) {
     case 'map': pageContent = <LeafletMapPanel selectedBus={mapSelectedBus} selectedTrip={mapSelectedTrip} onSelect={(b) => setSelectedBusId(b.id)} monitoredBuses={mapBuses} routeSafeRadiusM={ROUTE_DEVIATION_DEFAULT_M} onCenterBus={() => {}} resizeSignal={`${selectedBusId}-${mapStatus}-${mapTripStatus}`} autoCenterKey={`${mapStatus}-${mapTripStatus}`} showDetails nowMs={gpsNowMs} />; break;
+    case 'live-camera': pageContent = <LiveCameraView authorized={Boolean(user?.id)} buses={busesWithGps} frameService={CAMERA_FRAME_SERVICE} />; break;
     case 'vehicle-condition': pageContent = <VehicleConditionPage buses={telemetryBuses} fleetStatus={busesStatus} selectedBus={selectedBus} selectedBusId={selectedBusId} onSelectBus={(b) => setSelectedBusId(b.id)} onNavigate={setActivePage} nowMs={gpsNowMs} />; break;
     case 'alerts': pageContent = <AlertsPage alerts={alerts} buses={telemetryBuses} onUpdateAlert={updateAlert} initialCategory={alertCategory} initialStatus={alertStatus} selectedAlertId={alertId} />; break;
     case 'records': pageContent = <LoadablePanel load={loadGpsHistoryExplorer} loadingLabel="Loading activity records…" buses={telemetryBuses} initialBusId={selectedTab === 'condition-history' ? selectedBusId || '' : ''} />; break;
@@ -4872,7 +4887,8 @@ export function AuthorizedDashboard({ user }) {
       />
       <div className={`main-content dashboard-page dashboard-content flex flex-col gap-5 pb-10 ${activePage === 'dashboard' ? 'overview-wide-shell' : ''} ${sidebarOpen ? 'sidebar-expanded' : ''}`}>
         <Header currentTime={currentTime} activePageTitle={pageHeaders[activePage]?.title} activePageSubtitle={pageHeaders[activePage]?.subtitle} alertCount={activeAlertCount} systemHealth={systemHealth} connectivityStatus={connectivityStatus} alerts={alerts} buses={telemetryBuses} onToggleSidebar={() => setSidebarOpen((current) => !current)} onViewAlert={(alert) => navigate({ page: 'alerts', bus: alert.busNumber, alert: alert.id, alertType: getAlertCategory(alert) === 'Route' ? 'route-deviation' : undefined })} user={user} />
-        {activePage === 'settings' ? <SettingsPage user={user} onLogout={signOutActiveUser} buses={buses} busesStatus={busesStatus} /> : pageContent}
+        {activePage === 'settings' ? <SettingsPage user={user} onLogout={signOutActiveUser} buses={buses} busesStatus={busesStatus}
+          gpsByBusId={gpsByBusId} gpsRealtime={gpsRealtime} backendPoll={backendPoll} gpsNowMs={gpsNowMs} /> : pageContent}
       </div>
       {popupAlertId && alerts.find((alert) => alert.id === popupAlertId && isUnacknowledgedAlert(alert)) && <AlertNotification alert={alerts.find((alert) => alert.id === popupAlertId)} buses={telemetryBuses} onDismiss={dismissPopupAlert} onViewMap={() => { dismissPopupAlert(); const alert = alerts.find((item) => item.id === popupAlertId); navigate({ page: 'map', bus: alert?.busNumber, alert: getAlertCategory(alert || {}) === 'Route' ? 'route-deviation' : undefined }); }} onReview={() => { dismissPopupAlert(); const alert = alerts.find((item) => item.id === popupAlertId); navigate({ page: 'alerts', bus: alert?.busNumber, alert: alert?.id, alertType: getAlertCategory(alert || {}) === 'Route' ? 'route-deviation' : undefined }); }} onAcknowledge={() => { const alert = alerts.find((item) => item.id === popupAlertId); if (alert) updateAlert(alert.id, { workflowStatus: 'Acknowledged', acknowledgedBy: 'Admin', acknowledgedAt: Date.now() }); dismissPopupAlert(); }} />}
       </main>

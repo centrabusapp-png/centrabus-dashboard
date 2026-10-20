@@ -2757,7 +2757,7 @@ test('missing condition telemetry cannot create fleet warnings, critical issues,
   expect(counts.activeAlerts.filter((alert) => alert.category === 'Vehicle Condition')).toEqual([]);
 });
 
-test('Wi-Fi planning preserves existing Settings profile, logout, preferences and bus controls', async () => {
+test('graphical Device Setup preserves existing Settings profile, logout, preferences and bus controls', async () => {
   const previous = window.localStorage.getItem('centrabus.notificationPreferences');
   window.localStorage.removeItem('centrabus.notificationPreferences');
   const onLogout = jest.fn();
@@ -2766,6 +2766,9 @@ test('Wi-Fi planning preserves existing Settings profile, logout, preferences an
     expect(screen.getByRole('heading', { name: 'Administrator Profile' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Alert Notifications' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Wi-Fi Management' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Device Setup' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Configure Pi1 GPS-001' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Configure Pi2 GPS-002' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Bus Registration' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Bus Management' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Log out' }));

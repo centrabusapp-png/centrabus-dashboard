@@ -1,5 +1,22 @@
 # CentraBus dashboard
 
+## Camera display update
+
+The opt-in authenticated frame view now clears all six displayed readings and
+pauses browser camera reads with Preview OFF. Preview ON shows fresh analysis
+with original capture time and Fresh/Stale age. This display switch does not
+remotely stop the Pi camera process. Missing/stale readings are never zero.
+Capture freezes one matching analysis image and its six numeric/quality states;
+it never attaches old values to a newer image. Dial labels reuse existing
+calibration bands, not new physical/safety limits. Camera accuracy still needs
+same-capture physical verification.
+
+During explicitly enabled local development only, manual Capture writes a PNG
+to `captured-images` beside the frontend checkout, with loopback Host/Origin,
+native active-admin authorization and a fixed generated pathname. It is not an
+automatic recorder or cloud file writer. SQL and Pi enrollment/runtime changes
+remain separate. Camera/remote-Wi-Fi production flags stay disabled by default.
+
 The active React/Vite dashboard uses native Supabase Auth and Supabase for
 application data and Realtime. It does not initialize Firebase or provide a
 Firebase authentication fallback. Access requires a linked

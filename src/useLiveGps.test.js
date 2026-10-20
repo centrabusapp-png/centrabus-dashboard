@@ -11,6 +11,37 @@ jest.mock('./supabase', () => ({
 let channels;
 let liveRead;
 
+test('existing read and realtime payload preserve explicit device identity without extra queries', async () => {
+  liveRead = Promise.resolve({ data: [
+    { bus_id: 'a', device_id: 'GPS-001', latitude: 14.1, longitude: 121.1, gps_updated_at: '2026-10-18T00:00:00Z' },
+    { bus_id: 'b', device_id: 'GPS-002', latitude: 14.2, longitude: 121.2, gps_updated_at: '2026-10-18T00:00:00Z' },
+  ], error: null });
+  const { result } = renderHook(() => useLiveGps(['a', 'b']));
+  await waitFor(() => expect(result.current.realtime.readStatus).toBe('READY'));
+  expect(result.current.gpsByBusId.a.deviceId).toBe('GPS-001');
+  expect(result.current.gpsByBusId.b.deviceId).toBe('GPS-002');
+  act(() => channels[0].onData({ eventType: 'UPDATE', new: { bus_id: 'b', device_id: 'GPS-002', latitude: 14.3, longitude: 121.2,
+    gps_updated_at: '2026-10-18T00:00:01Z' } }));
+  expect(result.current.gpsByBusId.a.deviceId).toBe('GPS-001');
+  expect(result.current.gpsByBusId.b.deviceId).toBe('GPS-002');
+  expect(supabase.from).toHaveBeenCalledTimes(1);
+  expect(supabase.channel).toHaveBeenCalledTimes(1);
+});
+
+test('startup keeps an old saved location stale and switches only on a genuinely newer GPS observation', async () => {
+  const old = { bus_id: 'a', latitude: 14.1, longitude: 121.1, online: true, gps_updated_at: '2026-10-09T00:00:00Z' };
+  liveRead = Promise.resolve({ data: [old], error: null });
+  const { result } = renderHook(() => useLiveGps(['a']));
+  await waitFor(() => expect(result.current.realtime.readStatus).toBe('READY'));
+  const now = Date.parse('2026-10-10T00:00:00Z');
+  expect(getBusCoordinates({ gps: result.current.gpsByBusId.a })).toEqual({ lat: 14.1, lng: 121.1 });
+  expect(getMarkerGpsFreshness({ gps: result.current.gpsByBusId.a }, now).ageMs).toBe(86400000);
+  expect(deriveSystemHealth({ gpsByBusId: result.current.gpsByBusId, nowMs: now }).gps.status).toBe('STALE');
+  act(() => channels[0].onData({ eventType: 'UPDATE', new: { ...old, latitude: 14.2, gps_updated_at: '2026-10-10T00:00:00Z' } }));
+  expect(getBusCoordinates({ gps: result.current.gpsByBusId.a })).toEqual({ lat: 14.2, lng: 121.1 });
+  expect(getMarkerGpsFreshness({ gps: result.current.gpsByBusId.a }, now).ageMs).toBe(0);
+});
+
 test('an absent snapshot row retains the known marker as unavailable until a newer fix arrives', async () => {
   const original = { bus_id: 'a', latitude: 14.1, longitude: 121.1, online: true, gps_updated_at: '2026-10-09T00:00:00Z' };
   liveRead = Promise.resolve({ data: [original], error: null });

@@ -36,3 +36,9 @@ test('an explicitly invalid new value never silently falls back to another serve
 test.each([undefined, '', 'false', 'TRUE', '1', true])('read-only status requires the exact explicit flag: %s', (wifiStatusEnabled) => {
   expect(config({ wifiStatusEnabled }).wifiStatusEnabled).toBe(false);
 });
+
+test('remote Wi-Fi is never activated by a production build or a truthy non-string flag', () => {
+  expect(config({ remoteWifiEnabled: 'true' }).remoteWifiEnabled).toBe(false);
+  expect(config({ nodeEnv: 'development', remoteWifiEnabled: true }).remoteWifiEnabled).toBe(false);
+  expect(config({ nodeEnv: 'development', remoteWifiEnabled: 'true' }).remoteWifiEnabled).toBe(true);
+});

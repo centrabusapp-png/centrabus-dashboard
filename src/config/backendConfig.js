@@ -12,6 +12,8 @@ export function resolveBackendConfig({
   backendUrl = process.env.VITE_BACKEND_URL,
   legacyGpsUrl = process.env.VITE_GPS_INGESTION_URL,
   wifiStatusEnabled = process.env.VITE_WIFI_STATUS_ENABLED,
+  devicePresenceEnabled = process.env.VITE_DEVICE_PRESENCE_ENABLED,
+  remoteWifiEnabled = process.env.VITE_REMOTE_WIFI_ENABLED,
 } = {}) {
   const production = nodeEnv === 'production';
   const explicit = typeof backendUrl === 'string' && backendUrl.trim() !== '';
@@ -39,6 +41,8 @@ export function resolveBackendConfig({
     healthUrl: origin ? `${origin}/health` : null,
     wifiStatusBaseUrl: origin ? `${origin}/api/wifi-management/devices` : null,
     wifiStatusEnabled: wifiStatusEnabled === 'true',
+    devicePresenceEnabled: devicePresenceEnabled === 'true',
+    remoteWifiEnabled: remoteWifiEnabled === 'true' && !production,
   });
 }
 
