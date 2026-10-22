@@ -1,15 +1,22 @@
 // Display-only model. No default physical scales, units or alert thresholds.
-export const LIVE_GAUGE_KEYS = ['fuel', 'oilPressure', 'coolant', 'frontAir', 'battery', 'rearAir'];
+// Row-major order of the physical panel: keep live cards and Capture identical.
+export const LIVE_GAUGE_KEYS = ['fuel', 'coolant', 'frontAir', 'rearAir', 'battery', 'oilPressure'];
 export const LIVE_GAUGE_TITLES = { fuel: 'Fuel', oilPressure: 'Oil', coolant: 'Coolant',
   frontAir: 'Front air pressure', battery: 'Battery', rearAir: 'Rear air pressure' };
 
-// Same 25/75 dial bands and labels as the existing Python gauge reader.
-// These describe the printed dial position, NOT physical safety thresholds.
+// Display labels describe the camera's existing angle-to-dial mapping only.
+// "Half" means 50% of the E-F arc, not the whole historical 25-75% band.
+// No detector, calibration, fuel-volume or physical safety threshold changes.
 export function cameraDialStatus(gauge) {
   if (gauge.unverified !== true || gauge.quality !== 'detected'
     || gauge.status !== 'Reading Available' || !Number.isFinite(gauge.numericValue)
     || !Number.isFinite(gauge.dialPositionPercent) || gauge.dialPositionPercent<0 || gauge.dialPositionPercent>100) return null;
-  const bands={fuel:['Empty','Half','Full'],coolant:['Cold','Mid-range','Hot'],
+  if(gauge.gaugeKey==='fuel'){
+    const position=gauge.dialPositionPercent;
+    return position===0?'Empty mark (E)':position===100?'Full mark (F)':
+      position===50?'Halfway (E–F)':position<50?'Below half (E–F)':'Above half (E–F)';
+  }
+  const bands={coolant:['Cold','Mid-range','Hot'],
     battery:['Low','Mid-range','High'],oilPressure:['Low','Mid-range','High']};
   const labels=bands[gauge.gaugeKey];
   if(!labels)return 'Pressure reading';

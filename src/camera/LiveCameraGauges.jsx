@@ -1,49 +1,64 @@
 import { Activity, Battery, Droplets, Fuel, Gauge, Thermometer } from 'lucide-react';
 import CameraGaugePanel from './CameraGaugePanel';
 import { approvedDialPosition, cameraDialStatus, LIVE_GAUGE_PLACEHOLDERS, LIVE_GAUGE_TITLES } from './liveCameraGaugeModel';
+import { BUS_DIAL, BUS_DIAL_PATH, detectedNeedleAngle, dialPoint, dialScaleAngle } from './cameraDialGeometry';
 
 const icons = { fuel: Fuel, oilPressure: Droplets, coolant: Thermometer, frontAir: Gauge, battery: Battery, rearAir: Gauge };
 
-export function AnimatedCameraGauge({ gauge, calibration }) {
+export function AnimatedCameraGauge({ gauge, calibration, compact = false }) {
   const Icon = icons[gauge.gaugeKey] || Gauge;
   const available = Number.isFinite(gauge.numericValue);
   const stale = gauge.status === 'Stale';
   const relative = gauge.unverified === true && Number.isFinite(gauge.dialPositionPercent)
     && gauge.dialPositionPercent >= 0 && gauge.dialPositionPercent <= 100;
-  const dial = relative ? { percent: gauge.dialPositionPercent, min: 'L', max: 'H' } : approvedDialPosition(gauge, calibration);
+  const ends = gauge.gaugeKey==='fuel'?['E','F']:gauge.gaugeKey==='coolant'?['C','H']:['L','H'];
+  const dial = relative ? { percent: gauge.dialPositionPercent, min: ends[0], max: ends[1] } : approvedDialPosition(gauge, calibration);
   const title = LIVE_GAUGE_TITLES[gauge.gaugeKey] || gauge.label;
   const value = available ? gauge.numericValue.toLocaleString(undefined, { maximumFractionDigits: 3 }) : '—';
   const dialStatus = cameraDialStatus(gauge);
-  return <article className={`camera-condition-gauge ${stale ? 'is-stale' : ''}`}
+  const angle = detectedNeedleAngle(gauge);
+  const pressure = ['frontAir', 'rearAir'].includes(gauge.gaugeKey);
+  const ticks = pressure ? 15 : 4;
+  // Camera angles use atan2(up, right): 90 degrees is straight up. Use the
+  // actual detected direction when present; approved older sources without an
+  // angle retain a display-only position on the shorter bus-style scale.
+  const rotation = angle !== null ? 90 - angle : dial ? 90 - dialScaleAngle(dial.percent) : null;
+  return <article className={`camera-condition-gauge ${compact ? 'is-compact' : ''} ${stale ? 'is-stale' : ''}`}
     data-gauge-key={gauge.gaugeKey} data-camera-id={gauge.cameraId || undefined}
     aria-label={`${title}: ${available ? `${value} ${gauge.unit}` : 'Awaiting data'}${stale ? ', last-known reading' : ''}`}>
     <div className="camera-gauge-heading"><span className="camera-gauge-icon"><Icon size={16} aria-hidden="true" /></span><h3>{title}</h3></div>
-    <svg viewBox="0 0 200 116" className="camera-condition-dial" aria-hidden="true">
-      <path d="M 24 94 A 76 76 0 0 1 176 94" fill="none" stroke="#e8ecf2" strokeWidth="10" strokeLinecap="round" />
-      {dial && <path d="M 24 94 A 76 76 0 0 1 176 94" fill="none" stroke={stale ? '#94a3b8' : '#8e1f2f'}
-        strokeWidth="10" strokeLinecap="round" pathLength="100" strokeDasharray={`${dial.percent} 100`} />}
-      {Array.from({ length: 9 }, (_, index) => {
-        const angle = Math.PI - index / 8 * Math.PI;
-        return <line key={index} x1={100 + Math.cos(angle) * 61} y1={94 - Math.sin(angle) * 61}
-          x2={100 + Math.cos(angle) * 67} y2={94 - Math.sin(angle) * 67} stroke="#b9c3d0" strokeWidth={index % 4 ? 1.5 : 2.5} />;
+    <svg viewBox="0 0 200 128" className="camera-condition-dial" aria-hidden="true" data-sweep-degrees={BUS_DIAL.start - BUS_DIAL.end}>
+      <path d={BUS_DIAL_PATH} fill="none" stroke="#cbd5e1" strokeWidth="4" />
+      {Array.from({ length: ticks + 1 }, (_, index) => {
+        const markAngle = dialScaleAngle(index / ticks * 100);
+        const major = pressure ? index % 5 === 0 : index % 2 === 0;
+        const inside = dialPoint(markAngle, major ? 74 : 80), outside = dialPoint(markAngle, 88);
+        const label = dialPoint(markAngle, 59);
+        return <g key={index}><line x1={inside.x} y1={inside.y} x2={outside.x} y2={outside.y}
+          stroke="#b9c3d0" strokeWidth={major ? 3 : 1.5} />
+          {pressure && major && <text x={label.x} y={label.y + 3} textAnchor="middle" className="camera-dial-scale">{index}</text>}</g>;
       })}
-      {dial ? <g data-testid={`${gauge.gaugeKey}-needle`} className={`camera-gauge-needle ${stale ? 'is-stale' : ''}`}
-        style={{ transform: `rotate(${-90 + dial.percent * 1.8}deg)`, transformOrigin: '100px 94px' }}>
-        <path d="M 97 94 L 100 35 L 103 94 Z" fill={stale ? '#94a3b8' : '#8e1f2f'} />
-      </g> : <text x="100" y="67" textAnchor="middle" className="camera-dial-pending">{available ? 'SCALE PENDING' : 'NO READING'}</text>}
-      <circle cx="100" cy="94" r="7" fill={dial && !stale ? '#8e1f2f' : '#cbd5e1'} /><circle cx="100" cy="94" r="3" fill="white" />
-      {dial && <><text x="24" y="112" textAnchor="middle" className="camera-dial-scale">{dial.min}</text>
-        <text x="176" y="112" textAnchor="middle" className="camera-dial-scale">{dial.max}</text></>}
+      {rotation !== null ? <g data-testid={`${gauge.gaugeKey}-needle`} className={`camera-gauge-needle ${stale ? 'is-stale' : ''}`}
+        style={{ transform: `rotate(${rotation}deg)`, transformOrigin: '100px 108px' }}>
+        <path d="M 97 108 L 100 29 L 103 108 Z" fill={stale ? '#94a3b8' : '#8e1f2f'} />
+      </g> : <text x="100" y="92" textAnchor="middle" className="camera-dial-pending">{available ? 'SCALE PENDING' : 'NO READING'}</text>}
+      <circle cx="100" cy="108" r="8" fill={rotation !== null && !stale ? '#8e1f2f' : '#cbd5e1'} /><circle cx="100" cy="108" r="3" fill="white" />
+      {!pressure && <><text x="28" y="80" textAnchor="middle" className="camera-dial-scale">{relative || gauge.unverified ? ends[0] : dial?.min ?? ends[0]}</text>
+        <text x="172" y="80" textAnchor="middle" className="camera-dial-scale">{relative || gauge.unverified ? ends[1] : dial?.max ?? ends[1]}</text></>}
     </svg>
     <div className="camera-gauge-value">{value}<span>{available ? gauge.unit : 'Awaiting data'}</span></div>
+    <p className="camera-gauge-angle" title="Original detected needle angle from this camera capture; not calculated from the displayed percentage.">
+      Angle: {angle !== null ? `${angle.toFixed(2)}°` : '—'}</p>
     <div className={`camera-gauge-quality ${available && !stale ? 'has-reading' : ''}`}>
-      <span className="camera-quality-dot" />{stale ? 'Last known · stale' : gauge.unverified ? gauge.quality === 'detected' ? 'Detected · calibration unverified' : gauge.quality === 'uncertain' ? 'Uncertain · no value' : 'Not detected' : available ? 'Validated reading' : 'Not yet verified'}
+      <span className="camera-quality-dot" />{stale ? 'Last known · stale' : gauge.unverified ? gauge.quality === 'detected' ? compact ? 'Detected · estimate' : 'Detected · camera estimate' : gauge.quality === 'uncertain' ? 'Uncertain · no value' : 'Not detected' : available ? 'Validated reading' : 'Not yet verified'}
     </div>
     <p className="camera-gauge-capture">{gauge.capturedAt
       ? <><time dateTime={gauge.capturedAt} title={gauge.capturedAt}>{new Date(gauge.capturedAt).toLocaleTimeString()}</time> · {Math.floor(gauge.ageMs / 1000)}s ago</>
       : gauge.gaugeKey === 'oilPressure' ? 'Gauge meaning / units pending' : 'No validated capture'}</p>
     {available && Number.isFinite(gauge.confidence) && <p className="camera-gauge-confidence">Confidence {Math.round(gauge.confidence * 100)}%</p>}
-    {gauge.unverified && <p className="camera-gauge-confidence">{dialStatus ? `${dialStatus} · dial estimate` : gauge.quality === 'uncertain' ? 'Uncertain · check camera view' : 'Waiting for detection'}</p>}
+    {gauge.unverified && (!compact || dialStatus) && <p className="camera-gauge-confidence"
+      title={Number.isFinite(gauge.angleDegrees)?`Detected needle angle: ${gauge.angleDegrees.toFixed(3)}°. Dial position is not a validated physical measurement.`:undefined}>
+      {dialStatus ? compact ? dialStatus : `${dialStatus} · dial estimate` : gauge.quality === 'uncertain' ? 'Uncertain · check camera view' : 'Waiting for detection'}</p>}
   </article>;
 }
 

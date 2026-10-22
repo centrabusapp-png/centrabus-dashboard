@@ -33,7 +33,7 @@ export default function CaptureFrameSnapshot({ frame, deviceId, clock, onDone })
     <img ref={image} alt="" src={`data:image/jpeg;base64,${frame.image.base64}`} data-capture-id={frame.capture_id} />
     <section ref={panel} data-device-id={deviceId} data-capture-id={frame.capture_id}>
       <p className="camera-section-detail">{deviceId} · Bus {frame.bus_id}</p>
-      <div className="camera-condition-source"><strong>Matching source capture · Interpretation unverified</strong></div>
+      <div className="camera-condition-source"><strong>Matching source capture · Physical accuracy unverified</strong></div>
       {frameGauges(frame, clock()).map(g => <AnimatedCameraGauge key={g.gaugeKey} gauge={g} />)}
     </section>
   </div>;

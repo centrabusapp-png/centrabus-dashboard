@@ -6,6 +6,7 @@ import { frameGauges } from './cameraFrameService';
 import { captureSynchronizedFrame, downloadCameraEvidence } from './cameraEvidence';
 import FastLivePreview from './FastLivePreview';
 import CaptureFrameSnapshot from './CaptureFrameSnapshot';
+import { createCameraReadingsCsv } from './cameraReadingsCsv';
 
 export function decodePreview(url, signal) {
   return new Promise((resolve, reject) => {
@@ -20,8 +21,14 @@ export function decodePreview(url, signal) {
     if (signal?.aborted) abort(); else image.src = url;
   });
 }
-function DeviceFrames({ device, service, clock, decode = decodePreview }) {
-  const [preview, setPreview] = useState(false);
+// This is display intent only, never hardware/credential authorization. Only the
+// explicit local launcher URL opts in; ordinary visits still start Preview off.
+export function launcherPreviewDevice(location = window.location, development = process.env.NODE_ENV !== 'production') {
+  return development && ['localhost', '127.0.0.1'].includes(location.hostname)
+    && location.pathname === '/live-camera' && new URLSearchParams(location.search).get('startup') === 'pi2' ? 'GPS-002' : null;
+}
+function DeviceFrames({ device, service, clock, decode = decodePreview, initialPreview = false }) {
+  const [preview, setPreview] = useState(initialPreview);
   const [data, setData] = useState({ state: 'waiting', frame: null });
   const [status, setStatus] = useState('Waiting for an authenticated camera capture.');
   const [now, setNow] = useState(clock);
@@ -54,7 +61,7 @@ function DeviceFrames({ device, service, clock, decode = decodePreview }) {
         setStatus(next.state === 'not-enrolled' ? 'Camera enrollment required.' : next.state === 'waiting'
           ? 'No camera capture received yet.' : next.state === 'last-known'
             ? 'Last-known readings only. No matching live preview is available.' : detected
-              ? 'Same-capture preview and six observations · Interpretation unverified'
+              ? 'Same-capture needle positions · Physical accuracy unverified'
               : 'Camera preview received. Gauges not detected in this capture; no values are assumed.');
       } catch {
         if (active) { setData({ state: 'unavailable', frame: null }); setStatus('Camera unavailable. Check schema, camera enrollment and publisher; no values are assumed.'); }
@@ -73,6 +80,16 @@ function DeviceFrames({ device, service, clock, decode = decodePreview }) {
   const showing = preview && fresh && frame.image.base64;
   const detected = frame?.readings.some((reading) => reading.quality === 'detected');
   const gauges = frameGauges(fresh ? frame : null, now, fresh ? 'live' : 'waiting');
+  const csvReady = Boolean(fresh && detected);
+  const exportCsv = () => {
+    if (!csvReady || document.hidden) return;
+    try {
+      // Freeze this rendered source bundle synchronously; no additional read,
+      // inference, backend write, image save or older reading is involved.
+      const result = createCameraReadingsCsv({ frame, deviceId: device.deviceId, state: data.state, now: clock() });
+      downloadCameraEvidence(result); setCapture('CSV download requested.');
+    } catch { setCapture('CSV unavailable; wait for fresh readings.'); }
+  };
   const togglePreview = () => {
     viewing.current = !preview;
     setData({state:'waiting',frame:null});setCaptureFrame(null);setCapture('');
@@ -125,51 +142,53 @@ function DeviceFrames({ device, service, clock, decode = decodePreview }) {
   }, [captureFrame,service]);
   return <div className="live-camera-workspace" role="tabpanel" id="camera-device-workspace" aria-labelledby={`camera-tab-${device.deviceId}`}>
     <section className="camera-preview-panel min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm" aria-label={`${device.shortName} camera`}>
-      <header className="flex flex-wrap items-center justify-between gap-3 p-5"><div><p className="camera-section-eyebrow">Live camera preview</p><h2 className="font-extrabold">{device.name}</h2><p className="text-xs text-slate-500">{device.deviceId} · {frame?.camera_id || 'Camera not verified'}</p></div>
+      <header className="camera-preview-heading"><div><h2 className="font-extrabold">{device.name}</h2><p className="text-xs text-slate-500">{device.deviceId} · {frame?.camera_id || 'Camera not verified'}</p></div>
         <span role="status" className="text-xs font-bold">{fast
           ? liveAvailable ? 'Camera preview live' : 'Waiting for camera preview'
           : fresh ? 'Receiving captures' : frame ? 'Last known · stale' : 'Not receiving'}</span></header>
-      {fast ? <FastLivePreview device={device} service={service} enabled={preview} clock={clock} decode={decode} latestFrameRef={liveFrame} onAvailability={setLiveAvailable} /> : <div className="relative aspect-video w-full overflow-hidden bg-[#111827]">
+      {fast ? <FastLivePreview device={device} service={service} enabled={preview} clock={clock} decode={decode} latestFrameRef={liveFrame} onAvailability={setLiveAvailable} /> : <div className="camera-preview-viewport relative aspect-video w-full overflow-hidden bg-[#111827]">
         {showing ? <img ref={image} src={`data:image/jpeg;base64,${frame.image.base64}`} alt={`${device.shortName} capture ${frame.capture_id}`}
           data-capture-id={frame.capture_id} className="h-full w-full object-contain" />
           : <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-slate-300"><VideoOff size={36} /><strong>{preview ? 'No fresh matching preview' : 'Preview is off'}</strong><span className="text-xs">Gauge observations update independently of the preview switch.</span></div>}
       </div>}
-      {fast && <div className="px-5 pt-3 text-xs text-slate-500"><strong>{showing ? 'Capture source · matched analysis image + six gauge states' : 'Capture source · current live image only'}</strong>
-        <p>{showing ? `Capture saves this analysis image with its own readings${service.saveCapture ? ' in captured-images' : ''}, not the newer preview above.`
-          : 'No fresh matching analysis image is available. Capture saves the live image without older gauge values.'}</p>
-        {showing && <img ref={image} src={`data:image/jpeg;base64,${frame.image.base64}`}
-          data-capture-id={frame.capture_id} alt={`${device.shortName} matching analysis ${frame.capture_id}`} className="mt-2 max-h-32 rounded object-contain" />}
-      </div>}
-      <div className="space-y-3 p-5"><button type="button" role="switch" aria-checked={preview} onClick={togglePreview} className="rounded-xl border px-4 py-2 text-sm font-bold">Preview {preview ? 'on' : 'off'}</button>
-        <button type="button" disabled={!showing && !(fast && preview && liveAvailable)} onClick={save} className="ml-3 inline-flex items-center gap-2 rounded-xl bg-[#8e1f2f] px-4 py-2 text-sm font-bold text-white disabled:opacity-40"><Download size={16} />Capture</button>
-        {capture && <p role="status" className="text-xs text-slate-500">{capture}</p>}
-        <p className="text-xs text-slate-500">Preview off clears the image and all six displayed readings. This does not power down the Pi camera.</p>
-        <p className="break-all text-xs text-slate-500">{fast ? 'Analysis capture' : 'Capture'}: {frame?.capture_id || '—'}<br />Original capture UTC: {frame?.captured_at || '—'}</p>
+      <div className="camera-preview-actions"><button type="button" role="switch" aria-checked={preview} onClick={togglePreview} className="rounded-xl border px-4 py-2 text-sm font-bold">Preview {preview ? 'on' : 'off'}</button>
+        <button type="button" disabled={!showing && !(fast && preview && liveAvailable)} onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-[#8e1f2f] px-4 py-2 text-sm font-bold text-white disabled:opacity-40"><Download size={16} />Capture</button>
+        <span className="camera-capture-mode">{showing ? 'Capture: image + readings' : 'Capture: live image only'}</span>
       </div>
+      {capture && <p role="status" className="camera-capture-result" title={capture}>{capture}</p>}
     </section>
     <section ref={panel} data-device-id={device.deviceId} data-capture-id={frame?.capture_id} aria-label={`${device.shortName} vehicle condition`} className="camera-condition-panel">
-      <header className="camera-condition-heading"><div><p className="camera-section-eyebrow">Camera-derived observations</p><h2>Vehicle condition monitoring</h2><p className="camera-section-detail">{device.deviceId} · Bus {frame?.bus_id || 'not verified'}</p></div><span className="camera-six-gauges">6 gauges</span></header>
-      <div className="camera-condition-body"><div role="status" className="camera-condition-source"><div><strong>{!preview ? 'Preview off · Readings hidden' : fresh ? detected ? 'Detected values · not calibrated' : 'Camera active · Gauges not detected' : frame ? 'Analysis stale · Values withheld' : analysisWaiting ? 'Camera live · Awaiting gauge analysis' : 'Awaiting camera'}</strong><p>{!preview ? 'Turn Preview on to receive and display camera observations.' : analysisWaiting ? 'Live camera frames are arriving. No accepted gauge analysis has been received yet.' : status}</p>
-        {preview && !fresh && frame && <p>No fresh matching analysis. Older values are withheld, not copied onto a newer image.</p>}
-      </div></div>
-        <p role="status" className="mb-3 break-all text-xs text-slate-500">{!preview ? 'Freshness: Off' : frame ? <>{fresh ? 'Fresh' : 'Stale'} · {Math.max(0,Math.floor((now-Date.parse(frame.captured_at))/1000))}s since capture · <time dateTime={frame.captured_at}>{new Date(frame.captured_at).toLocaleTimeString()}</time></> : 'Freshness: Waiting for camera analysis'}</p>
-        <div className="camera-condition-grid">{gauges.map((gauge) => <AnimatedCameraGauge key={gauge.gaugeKey} gauge={gauge} />)}</div>
+      <header className="camera-condition-heading"><div><h2>Vehicle condition monitoring</h2><p className="camera-section-detail" title="Camera-derived estimates; physical accuracy unverified. Rejected readings remain blank.">{device.deviceId} · Camera estimates</p></div>
+        <div className="camera-export-tools"><button type="button" onClick={exportCsv} disabled={!csvReady} title="Download the six readings from this capture as a CSV file."><Download size={14} aria-hidden="true" />Export CSV</button>
+          <span>{csvReady ? 'Ready to export' : 'No fresh readings'}</span></div></header>
+      <div className="camera-condition-body"><div role="status" className="camera-condition-source"><strong title={status}>{!preview ? 'Preview off · Readings hidden' : fresh ? detected ? 'Detected needle positions' : 'Camera active · Gauges not detected' : frame ? 'Analysis stale · Values withheld' : analysisWaiting ? 'Camera live · Awaiting gauge analysis' : 'Awaiting camera'}</strong></div>
+        <p role="status" className="camera-freshness">{!preview ? 'Freshness: Off' : frame ? <>{fresh ? 'Fresh' : 'Stale'} · {Math.max(0,Math.floor((now-Date.parse(frame.captured_at))/1000))}s since capture · <time dateTime={frame.captured_at}>{new Date(frame.captured_at).toLocaleTimeString()}</time></> : 'Freshness: Waiting for camera analysis'}</p>
+        <div className="camera-condition-grid">{gauges.map((gauge) => <AnimatedCameraGauge compact key={gauge.gaugeKey} gauge={gauge} />)}</div>
       </div>
     </section>
     {captureFrame && <CaptureFrameSnapshot frame={captureFrame} deviceId={device.deviceId} clock={clock} onDone={finishCapture} />}
   </div>;
 }
 export default function SynchronizedCameraView({ service, clock = Date.now, decode }) {
-  const [deviceId, setDeviceId] = useState('GPS-001');
+  const [startupDevice] = useState(() => launcherPreviewDevice());
+  const startupPreview = useRef(startupDevice);
+  const [deviceId, setDeviceId] = useState(startupDevice || 'GPS-001');
+  const selectDevice = id => { startupPreview.current = null; setDeviceId(id); };
+  useEffect(() => {
+    if (!startupDevice) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('startup');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, [startupDevice]);
   const device = LIVE_CAMERA_DEVICES.find((row) => row.deviceId === deviceId);
-  return <section aria-label="Live Camera View" className="space-y-4"><div className="live-camera-toolbar"><div className="flex items-center gap-3"><MonitorPlay size={22} /><div><h2 className="font-extrabold">Camera & vehicle condition</h2><p className="text-xs text-slate-500">Live preview and independently analyzed gauges. Pictures save only when you click Capture.</p></div></div>
+  return <section aria-label="Live Camera View" className="live-camera-page"><div className="live-camera-toolbar"><div className="flex items-center gap-3"><MonitorPlay size={22} /><div><h2 className="font-extrabold">Camera & vehicle condition</h2><p className="text-xs text-slate-500">Live preview · Capture saves an image only when clicked.</p></div></div>
     <div className="live-camera-tabs" role="tablist" aria-label="Camera device">{LIVE_CAMERA_DEVICES.map((item) => <button type="button" role="tab" aria-selected={item.deviceId === deviceId}
       id={`camera-tab-${item.deviceId}`} aria-controls="camera-device-workspace" tabIndex={item.deviceId===deviceId?0:-1}
-      key={item.deviceId} className="live-camera-tab" onClick={() => setDeviceId(item.deviceId)}
+      key={item.deviceId} className="live-camera-tab" onClick={() => selectDevice(item.deviceId)}
       onKeyDown={(event)=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
         event.preventDefault();const next=event.key==='Home'?LIVE_CAMERA_DEVICES[0]:event.key==='End'?LIVE_CAMERA_DEVICES[1]:LIVE_CAMERA_DEVICES.find(row=>row.deviceId!==deviceId);
-        setDeviceId(next.deviceId);document.getElementById(`camera-tab-${next.deviceId}`)?.focus();
+        selectDevice(next.deviceId);document.getElementById(`camera-tab-${next.deviceId}`)?.focus();
       }}}><Camera size={17} /><span>{item.shortName}<small>{item.deviceId}</small></span></button>)}</div></div>
-    <DeviceFrames key={deviceId} device={device} service={service} clock={clock} decode={decode} />
+    <DeviceFrames key={deviceId} device={device} service={service} clock={clock} decode={decode} initialPreview={startupPreview.current === deviceId} />
   </section>;
 }

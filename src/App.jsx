@@ -46,6 +46,9 @@ import LiveCameraView from './camera/LiveCameraView';
 import { createCameraFrameService } from './camera/cameraFrameService';
 import CameraFrameGaugePanel from './camera/CameraFrameGaugePanel';
 import { cameraReadingsFeatureEnabled } from './camera/cameraReadings';
+import { AnimatedCameraGauge } from './camera/LiveCameraGauges';
+import { LIVE_GAUGE_PLACEHOLDERS } from './camera/liveCameraGaugeModel';
+import './VehicleConditionPage.css';
 
 const ROUTE_DEVIATION_DEFAULT_M = 100;
 const SYSTEM_HEALTH_THRESHOLDS = {
@@ -981,22 +984,22 @@ export function buildApplicationAlerts(buses, nowMs = Date.now()) {
   const routeAlerts = buses.flatMap((bus) => {
     if (!isConfirmedRouteDeviation(bus)) return [];
     const distance = formatDistanceFromRoute(bus.gps?.distanceFromRouteM);
-    const route = bus.routeName || 'No assigned route';
+    const route = visibleRouteName(bus.routeName);
     return [{
       id: `route-deviation-${bus.id}`,
       issueKey: 'route-deviation',
       busId: bus.id,
       busNumber: bus.id,
       plateNumber: bus.plateNumber,
-      routeName: route,
+      routeName: bus.routeName || null,
       category: 'Route',
       type: 'Route Deviation',
       source: 'GPS Route Monitoring',
       severity: 'Critical',
       title: 'Route Deviation Detected',
       description: distance === 'Unavailable'
-        ? `Distance from assigned route unavailable · ${route}.`
-        : `${distance} from assigned route · ${route}.`,
+        ? `Distance from assigned route unavailable${route ? ` · ${route}` : ''}.`
+        : `${distance} from assigned route${route ? ` · ${route}` : ''}.`,
       timestampMs: getTimestampMs(bus.gps?.updatedAt),
       status: 'New',
       workflowStatus: 'New',
@@ -1387,6 +1390,13 @@ export function getOverlappingBuses(bus, buses, maxDistanceM = BUS_OVERLAP_DISTA
   });
 }
 
+// Hide the retired corridor's labels in presentation only. Preserve original
+// route assignments and source telemetry for history/backend processing.
+export function visibleRouteName(value) {
+  const name = typeof value === 'string' ? value.trim() : '';
+  return !name || /^(?:LIMA\s*[-–—→]\s*FPIP|FPIP\s*[-–—→]\s*LIMA)$/i.test(name) ? null : name;
+}
+
 export function getTripRoutePoints(trip) {
   if (!trip) return fpipToLimaRoute;
   // Presentation only: reverse operational assignments/history are retained.
@@ -1445,7 +1455,7 @@ function StatusBadge({ value }) {
   return <span className={`rounded-full border px-2.5 py-0.5 text-sm font-semibold ${getStatusBadgeStyle(value)}`}>{value}</span>;
 }
 
-function Header({ currentTime, activePageTitle, activePageSubtitle, alertCount, systemHealth, connectivityStatus, alerts, buses = [], onViewAlert, onToggleSidebar, user }) {
+export function Header({ currentTime, activePageTitle, activePageSubtitle, alertCount, systemHealth, connectivityStatus, alerts, buses = [], onViewAlert, onToggleSidebar, user }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const notifications = alerts.filter(isUnacknowledgedAlert);
   const connectivityStyles = {
@@ -2412,7 +2422,7 @@ function ActiveBusSummary({ bus, onNavigate, nowMs, onClose }) {
             <div title="Operational bus status is independent of GPS freshness"><div className="mb-1 text-[10px] text-slate-500">Bus record</div><BusStatusBadge status={bus.status} /></div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Route</div><div className="mt-1 font-bold text-slate-700">{bus.routeName || 'No route assigned'}</div></div>
+            {visibleRouteName(bus.routeName) && <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Route</div><div className="mt-1 font-bold text-slate-700">{visibleRouteName(bus.routeName)}</div></div>}
             <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Location</div><div className="mt-1 font-bold text-slate-700">{coordinates ? `${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)}` : 'Unavailable'}</div></div>
             <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Speed</div><div className="mt-1 font-bold text-slate-700">{Number.isFinite(liveSpeed) ? `${liveSpeed} km/h` : 'Unavailable'}</div><div className="text-[11px] text-slate-500">Raw GPS · Motion at fix: {rawGpsMotion(bus.gps)}</div></div>
             <div title={formatGpsLastUpdate(gpsFreshness)}><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">GPS</div><div className="mt-1 font-bold text-slate-700">{coordinates ? `${gpsFreshness.status} · ${formatCompactGpsAge(gpsFreshness.ageMs)}` : 'No GPS Data'}</div></div>
@@ -2977,6 +2987,28 @@ export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashb
     }
   };
 
+  if (pageContext === 'vehicle-condition') {
+    return <section className={`condition-summary-compact ${borderTone}`} aria-label="Vehicle condition readings">
+      <header className="condition-summary-toolbar">
+        <div><h2>Gauge readings</h2><p title="Needle positions from the camera. Physical accuracy has not been independently verified.">Camera estimates</p></div>
+        <div className="condition-page-actions">
+          {hasConditionData && <StatusBadge value={overallCondition} />}
+          <button type="button" onClick={() => onNavigate('live-camera')}><Camera size={14} />Live camera</button>
+          <button type="button" onClick={() => onNavigate({ page: 'records', bus: bus.id, tab: 'condition-history' })}><FileClock size={14} />History</button>
+        </div>
+      </header>
+      {frameService?.enabled ? <CameraFrameGaugePanel compact key={bus.id} busId={bus.id} service={frameService} />
+        : cameraEnabled ? <CameraGaugePanel enabled busId={bus.id} service={cameraService} calibration={cameraCalibration}
+          renderGauge={(gauge) => <GaugeCard gauge={gauge} />} />
+        : (bus.gaugeReadings || []).length ? <div className="condition-legacy-grid">{[...bus.gaugeReadings]
+          .sort((a, b) => a.displayOrder - b.displayOrder).map(gauge => <GaugeCard key={gauge.id} gauge={gauge} />)}</div>
+        : <div className="condition-camera-snapshot">
+          <p role="status" className="condition-camera-status"><strong>Waiting for readings</strong><span>No camera data</span></p>
+          <div className="camera-condition-grid">{LIVE_GAUGE_PLACEHOLDERS.map(gauge => <AnimatedCameraGauge compact key={gauge.gaugeKey} gauge={gauge} />)}</div>
+        </div>}
+    </section>;
+  }
+
   return (
     <section className={`min-w-0 overflow-hidden rounded-[18px] border bg-white p-[18px] shadow-sm ${borderTone}`}>
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -3086,11 +3118,29 @@ export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashb
 
 /* ─── Map Components ────────────────────────────── */
 
-export function BusDetailsPanel({ bus, onNavigate, nowMs }) {
+export function BusDetailsPanel({ bus, onNavigate, nowMs, compact = false }) {
   if (!bus) return <section className="min-w-0 overflow-hidden rounded-[18px] border border-slate-200/80 bg-white p-[18px] shadow-sm"><h2 className="text-[15px] font-extrabold text-slate-900">Bus Details</h2><div className="mt-4"><EmptyState compact icon={BusFront} title="No bus selected" message="Select an available bus to view its details." /></div></section>;
   const coordinates = getBusCoordinates(bus);
   const liveSpeed = rawGpsSpeed(bus.gps);
   const gpsFreshness = getGpsFreshness(bus, nowMs);
+  if (compact) {
+    const routeStatus = getRouteAssessmentPresentation(bus.gps, nowMs);
+    return <section className="condition-bus-summary" aria-label="Selected bus details">
+      <header>
+        <div className="condition-bus-identity"><h2 title={`Bus ID: ${bus.id}`}>{bus.plateNumber || 'No plate assigned'}</h2>{visibleRouteName(bus.routeName) && <span>{visibleRouteName(bus.routeName)}</span>}</div>
+        <div className="condition-bus-status"><BusStatusBadge status={bus.status} />
+          <span className="condition-gps-status" title={formatGpsLastUpdate(gpsFreshness)}>GPS {gpsFreshness.status} · {formatCompactGpsAge(gpsFreshness.ageMs)}</span>
+          <button type="button" onClick={() => onNavigate('map')} aria-label="View selected bus on map"><Map size={14} />Map</button>
+        </div>
+      </header>
+      <div className="condition-bus-facts">
+        <span>{gpsFreshness.status === 'Online' ? 'Speed' : 'Last speed'} <strong>{Number.isFinite(liveSpeed) ? `${liveSpeed} km/h` : '—'}</strong></span>
+        <div aria-label="Route Monitoring"><span data-route-tone={routeStatus.tone} className={routeStatus.className}>{routeStatus.label}</span>
+          <span title={routeStatus.lastKnown ? 'Last-known distance from assigned route' : 'Distance from assigned route'}>{formatDistanceFromRoute(bus.gps?.distanceFromRouteM)} from route</span>
+        </div>
+      </div>
+    </section>;
+  }
   return (
     <section className="min-w-0 overflow-hidden rounded-[18px] border border-slate-200/80 bg-white p-[18px] shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -3098,7 +3148,7 @@ export function BusDetailsPanel({ bus, onNavigate, nowMs }) {
         <div title="Operational bus status is independent of GPS freshness"><div className="mb-1 text-[10px] text-slate-500">Bus record</div><BusStatusBadge status={bus.status} /></div>
       </div>
       <div className="grid gap-4 border-y border-slate-100 py-4 sm:grid-cols-3">
-        <div><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Vehicle</div><div className="mt-1 text-sm font-bold text-slate-700">{bus.routeName || 'No route assigned'}</div><div className="mt-1 text-xs font-medium text-slate-500">Bus Record Updated: {formatRecordTimestamp(bus.updatedAt)}</div></div>
+        <div><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Vehicle</div>{visibleRouteName(bus.routeName) && <div className="mt-1 text-sm font-bold text-slate-700">{visibleRouteName(bus.routeName)}</div>}<div className="mt-1 text-xs font-medium text-slate-500">Bus Record Updated: {formatRecordTimestamp(bus.updatedAt)}</div></div>
         <div><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Tracking</div><div className="mt-1 text-sm font-bold text-slate-700">{Number.isFinite(liveSpeed) ? `${liveSpeed} km/h` : 'Speed unavailable'}</div><div className="mt-1 text-xs font-medium text-slate-500">{coordinates ? `${coordinates.lat}, ${coordinates.lng}` : 'Location not available'}</div></div>
         <div title={formatGpsLastUpdate(gpsFreshness)}><div className="text-xs font-bold uppercase tracking-wide text-slate-400">GPS</div><div className="mt-1 text-sm font-bold text-slate-700">{gpsFreshness.status}</div><div className="mt-1 text-xs font-medium text-slate-500">{formatCompactGpsAge(gpsFreshness.ageMs)}</div></div>
       </div>
@@ -3344,10 +3394,10 @@ export function BusMarkerCallout({ bus, nowMs }) {
         <div title="Operational bus status is independent of GPS freshness"><div className="mb-1 text-[10px] text-slate-500">Bus record</div><BusStatusBadge status={bus.status} /></div>
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-2 py-2.5">
-        <div className="min-w-0">
+        {visibleRouteName(bus.routeName) && <div className="min-w-0">
           <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Route</div>
-          <div className="mt-0.5 break-words text-xs font-bold leading-5 text-slate-800">{bus.routeName || 'No route assigned'}</div>
-        </div>
+          <div className="mt-0.5 break-words text-xs font-bold leading-5 text-slate-800">{visibleRouteName(bus.routeName)}</div>
+        </div>}
         <div className="min-w-0">
           <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">GPS Status</div>
           <div className="mt-0.5"><StatusBadge value={gpsFreshness.status} /></div>
@@ -3877,7 +3927,7 @@ function FleetBusSelector({ buses, selectedBusId, nowMs, onSelectBus }) {
                 <span className="h-3 w-3 shrink-0 rounded-full ring-2 ring-white" style={{ backgroundColor: getBusMarkerIdentityColor(bus) }} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-extrabold text-slate-900">{label}</span>
-                  <span className="block truncate text-[11px] font-medium text-slate-500">{bus.routeName || 'No assigned route'}</span>
+                  {visibleRouteName(bus.routeName) && <span className="block truncate text-[11px] font-medium text-slate-500">{visibleRouteName(bus.routeName)}</span>}
                 </span>
                 <StatusBadge value={gpsStatus} />
               </button>
@@ -3889,7 +3939,7 @@ function FleetBusSelector({ buses, selectedBusId, nowMs, onSelectBus }) {
   );
 }
 
-function LeafletMapPanel({
+export function LeafletMapPanel({
   selectedBus, selectedTrip, onSelect, monitoredBuses, routeSafeRadiusM,
   selectedPlaceholderBus, onSelectPlaceholderBus, onCenterBus, resizeSignal, autoCenterKey, showDetails = false, compact = false, nowMs, showFullMapAction = false, onNavigate,
 }) {
@@ -3898,8 +3948,8 @@ function LeafletMapPanel({
   const [resetViewSignal, setResetViewSignal] = useState(0);
   const [pinSelectedBusSignal, setPinSelectedBusSignal] = useState(0);
   const mapRef = useRef(null);
-  const tripRoutePoints = compact && !selectedBus ? [] : getTripRoutePoints(selectedTrip);
-  const roadRoute = useRoadRoute(tripRoutePoints);
+  // No assigned-route overlay or routing request on either fleet map. Bus GPS
+  // markers/centering remain live; this does not change route-monitoring data.
   const selectedCoordinates = getBusCoordinates(selectedBus);
   const selectedLiveSpeed = rawGpsSpeed(selectedBus?.gps);
   const selectedGpsFreshness = getGpsFreshness(selectedBus, nowMs);
@@ -3937,13 +3987,12 @@ function LeafletMapPanel({
           <TileLayer attribution='&copy; OpenStreetMap contributors' url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
           <MapViewportController
             mapRef={mapRef} selectedBus={selectedBus} visiblePoints={markerBuses.map(getBusCoordinates).filter(Boolean)}
-            routePoints={roadRoute.points.length ? roadRoute.points : tripRoutePoints}
+            routePoints={[]}
             centerBusSignal={centerSignal} centerAllSignal={centerAllSignal}
             resetViewSignal={resetViewSignal} resizeSignal={resizeSignal}
           />
           <FitFleetBounds buses={markerBuses} />
           <AnimatedRadiusCircle center={radiusCenter} radius={routeSafeRadiusM} />
-          <AssignedRouteLine routePoints={roadRoute.points} />
           
           <ZoomAwareBusMarkers buses={markerBuses} selectedBusId={selectedBus?.id} onSelect={onSelect} nowMs={nowMs} pinSelectedBusSignal={pinSelectedBusSignal} knownBusIds={monitoredBuses.map((bus) => bus.id)} />
         </MapContainer>
@@ -3951,7 +4000,7 @@ function LeafletMapPanel({
       {showDetails && (selectedBus ? (
         <div className="grid gap-x-5 gap-y-4 border-t border-slate-100 bg-white p-5 sm:grid-cols-2 xl:grid-cols-5">
           <div className="min-w-0"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Vehicle</div><div className="mt-1 truncate text-base font-extrabold text-slate-900">{selectedBus.plateNumber || 'No plate assigned'}</div><div className="mt-1 truncate text-xs font-medium text-slate-500">Bus ID: {selectedBus.id}</div></div>
-          <div className="min-w-0"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Status & Trip</div><div className="mt-1"><BusStatusBadge status={selectedBus.status} /></div><div className="mt-2 text-sm font-semibold text-slate-600">{selectedTrip?.status || 'No active trip'} · {selectedTrip?.routeLabel || selectedBus.routeName || 'No assigned route'}</div></div>
+          <div className="min-w-0"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Status & Trip</div><div className="mt-1"><BusStatusBadge status={selectedBus.status} /></div><div className="mt-2 text-sm font-semibold text-slate-600">{[selectedTrip?.status || 'No active trip', visibleRouteName(selectedTrip?.routeLabel || selectedBus.routeName)].filter(Boolean).join(' · ')}</div></div>
           <div className="min-w-0"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Tracking</div><div className="mt-1 text-sm font-extrabold text-slate-800">{Number.isFinite(selectedLiveSpeed) ? `${selectedLiveSpeed} km/h` : 'Speed unavailable'}</div><div className="mt-1 text-xs font-medium text-slate-500">{selectedCoordinates ? `${selectedCoordinates.lat}, ${selectedCoordinates.lng}` : 'Location not available'}</div></div>
           <div className="min-w-0" title={formatGpsLastUpdate(selectedGpsFreshness)}><div className="text-xs font-bold uppercase tracking-wide text-slate-400">GPS</div><div className="mt-1 text-sm font-extrabold text-slate-800">{selectedGpsFreshness.status}</div><div className="mt-1 text-xs font-medium text-slate-500">{formatCompactGpsAge(selectedGpsFreshness.ageMs)}</div></div>
           <div className="min-w-0"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">Bus Record Updated</div><div className="mt-1 text-sm font-semibold text-slate-700">{formatRecordTimestamp(selectedBus.updatedAt)}</div>{selectedTrip?.status === 'Active' && <div className="mt-1 text-xs font-medium text-slate-500">Trip started {selectedTrip.date} · {selectedTrip.time}</div>}</div>
@@ -4592,8 +4641,16 @@ export function buildActivityRecordsCsv(records = [], buses = []) {
   return [headings, ...rows].map((row) => row.map(quote).join(',')).join('\r\n');
 }
 
-export function FleetHealthCard({ buses, fleetStatus }) {
+export function FleetHealthCard({ buses, fleetStatus, compact = false }) {
   const health = getFleetHealthCounts(buses);
+
+  if (compact) return <section className="condition-fleet-health" aria-label="Fleet condition summary">
+    <header><h2>Fleet health</h2><span>{health.total} buses</span></header>
+    {fleetStatus !== 'ready' ? <p>{fleetStatus === 'loading' ? 'Loading…' : 'Unavailable'}</p>
+      : <dl>{[['Normal', health.normal, 'normal'], ['Warning', health.warning, 'warning'],
+        ['Critical', health.critical, 'critical'], ['No data', health.unknown, 'unknown']].map(([label, count, tone]) =>
+        <div key={label}><dt><i className={`condition-fleet-dot is-${tone}`} />{label}</dt><dd>{count}</dd></div>)}</dl>}
+  </section>;
 
   return (
     <section className="rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-sm">
@@ -4661,7 +4718,7 @@ export function NeedsAttentionCard({ buses, fleetStatus, onNavigate }) {
   );
 }
 
-function BusFleetSelector({ buses, fleetStatus, selectedBusId, onSelectBus }) {
+function BusFleetSelector({ buses, fleetStatus, selectedBusId, onSelectBus, compact = false }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const sortedBuses = [...buses].sort((a, b) => {
@@ -4675,7 +4732,7 @@ function BusFleetSelector({ buses, fleetStatus, selectedBusId, onSelectBus }) {
   });
 
   return (
-    <section className="bus-fleet-panel flex min-h-0 flex-col self-start overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-sm">
+    <section className={`bus-fleet-panel ${compact ? 'condition-bus-list' : ''} flex min-h-0 flex-col self-start overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-sm`}>
       <div className="border-b border-slate-100 bg-slate-50/50 p-4">
         <h2 className="mb-3 text-[15px] font-extrabold text-slate-900">Bus Fleet</h2>
         <input 
@@ -4708,8 +4765,8 @@ function BusFleetSelector({ buses, fleetStatus, selectedBusId, onSelectBus }) {
               <span className="text-base font-extrabold leading-none text-slate-900">{bus.plateNumber || 'No plate assigned'}</span>
               <BusStatusBadge status={bus.status} />
             </div>
-            <div className="mt-1 truncate text-xs font-medium text-slate-500">Bus ID: {bus.id}</div>
-            <div className="mt-0.5 text-xs font-medium text-slate-500">{bus.routeName || 'No route assigned'}</div>
+            {!compact && <div className="mt-1 truncate text-xs font-medium text-slate-500">Bus ID: {bus.id}</div>}
+            {visibleRouteName(bus.routeName) && <div className="mt-0.5 text-xs font-medium text-slate-500">{visibleRouteName(bus.routeName)}</div>}
           </button>
         ))}
       </div>
@@ -4717,19 +4774,18 @@ function BusFleetSelector({ buses, fleetStatus, selectedBusId, onSelectBus }) {
   );
 }
 
-function VehicleConditionPage({ buses, fleetStatus, selectedBus, selectedBusId, onSelectBus, onNavigate, nowMs }) {
+export function VehicleConditionPage({ buses, fleetStatus, selectedBus, selectedBusId, onSelectBus, onNavigate, nowMs, frameService = CAMERA_FRAME_SERVICE }) {
   const conditionBus = getVehicleConditionDisplayBus(selectedBus);
 
   return (
-    <div className="vehicle-condition-layout grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
-      <aside className="vehicle-condition-sidebar flex min-w-0 flex-col gap-4 self-start lg:sticky lg:top-24">
-        <BusFleetSelector buses={buses} fleetStatus={fleetStatus} selectedBusId={selectedBusId} onSelectBus={onSelectBus} />
-        <FleetHealthCard buses={buses} fleetStatus={fleetStatus} />
-        <NeedsAttentionCard buses={buses} fleetStatus={fleetStatus} onNavigate={onNavigate} />
+    <div className="vehicle-condition-layout condition-compact-page">
+      <aside className="vehicle-condition-sidebar">
+        <BusFleetSelector compact buses={buses} fleetStatus={fleetStatus} selectedBusId={selectedBusId} onSelectBus={onSelectBus} />
+        <FleetHealthCard compact buses={buses} fleetStatus={fleetStatus} />
       </aside>
-      <div className="min-w-0 space-y-5">
-        <BusDetailsPanel bus={selectedBus} onNavigate={onNavigate} nowMs={nowMs} />
-        <VehicleConditionSummary bus={conditionBus} pageContext="vehicle-condition" onNavigate={onNavigate} />
+      <div className="condition-page-main">
+        <BusDetailsPanel compact bus={selectedBus} onNavigate={onNavigate} nowMs={nowMs} />
+        <VehicleConditionSummary bus={conditionBus} pageContext="vehicle-condition" onNavigate={onNavigate} frameService={frameService} />
       </div>
     </div>
   );
@@ -4885,7 +4941,7 @@ export function AuthorizedDashboard({ user }) {
         alertCount={activeAlertCount}
         onLogout={signOutActiveUser}
       />
-      <div className={`main-content dashboard-page dashboard-content flex flex-col gap-5 pb-10 ${activePage === 'dashboard' ? 'overview-wide-shell' : ''} ${sidebarOpen ? 'sidebar-expanded' : ''}`}>
+      <div className={`main-content dashboard-page dashboard-content flex flex-col gap-5 pb-10 ${activePage === 'dashboard' ? 'overview-wide-shell' : ''} ${activePage === 'live-camera' ? 'camera-monitor-shell' : ''} ${activePage === 'vehicle-condition' ? 'condition-monitor-shell' : ''} ${sidebarOpen ? 'sidebar-expanded' : ''}`}>
         <Header currentTime={currentTime} activePageTitle={pageHeaders[activePage]?.title} activePageSubtitle={pageHeaders[activePage]?.subtitle} alertCount={activeAlertCount} systemHealth={systemHealth} connectivityStatus={connectivityStatus} alerts={alerts} buses={telemetryBuses} onToggleSidebar={() => setSidebarOpen((current) => !current)} onViewAlert={(alert) => navigate({ page: 'alerts', bus: alert.busNumber, alert: alert.id, alertType: getAlertCategory(alert) === 'Route' ? 'route-deviation' : undefined })} user={user} />
         {activePage === 'settings' ? <SettingsPage user={user} onLogout={signOutActiveUser} buses={buses} busesStatus={busesStatus}
           gpsByBusId={gpsByBusId} gpsRealtime={gpsRealtime} backendPoll={backendPoll} gpsNowMs={gpsNowMs} /> : pageContent}

@@ -37,10 +37,13 @@ test.each([[false,false],[true,false],[true,true]])('real frozen PNG completes o
     expect(labels).toContain('CAPTURE DETAILS');
     expect(labels).toContain(detected?'35':'Not detected');
     if(detected){
-      expect(labels).toContain('Half · dial estimate');
+      expect(labels.filter(text => text === 'Angle: 90.00°')).toHaveLength(6);
+      expect(labels).toContain('Below half (E–F) · dial estimate');
+      expect(labels).not.toContain('Half · dial estimate');
       expect(labels).toContain('Mid-range · dial estimate');
       expect(labels).toContain('Pressure reading · dial estimate');
     }
+    else expect(labels.filter(text => text === 'Angle: —')).toHaveLength(6);
     expect(labels).toContain(detected?"Only this capture's detected values are included.":'No detected values for this image. Older values NOT copied.');
     expect(context.fillRect).toHaveBeenCalledWith(0,0,1540,890);
     ui.unmount();

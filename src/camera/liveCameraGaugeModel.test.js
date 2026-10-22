@@ -10,7 +10,7 @@ test('device association never guesses from bus order, plate or missing identity
 });
 
 test('all six placeholders have independent keys and no fabricated values or units', () => {
-  expect(LIVE_GAUGE_PLACEHOLDERS.map((g) => g.gaugeKey)).toEqual(['fuel', 'oilPressure', 'coolant', 'frontAir', 'battery', 'rearAir']);
+  expect(LIVE_GAUGE_PLACEHOLDERS.map((g) => g.gaugeKey)).toEqual(['fuel', 'coolant', 'frontAir', 'rearAir', 'battery', 'oilPressure']);
   expect(LIVE_GAUGE_PLACEHOLDERS.every((g) => g.numericValue === undefined && g.unit === undefined)).toBe(true);
 });
 

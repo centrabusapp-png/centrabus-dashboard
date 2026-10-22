@@ -15,6 +15,21 @@ test('single capture contains six keyed observations; missing/uncertain data is 
   expect(new Set(gauges.map((g) => g.capturedAt)).size).toBe(1);
   expect(gauges.every((g) => g.confidence === null && g.unverified)).toBe(true);
 });
+
+test('physical panel order is independent of incoming array order and preserves each source angle/value', () => {
+  const body = fixture();
+  body.frame.readings.forEach((row, i) => { row.value = i + 10; row.angle_deg = 141.234 - i; });
+  body.frame.readings.reverse();
+  const {frame} = cameraFrameReply(body, 'GPS-001');
+  const gauges = frameGauges(frame, NOW);
+  expect(gauges.map(g => g.gaugeKey)).toEqual(['fuel', 'coolant', 'frontAir', 'rearAir', 'battery', 'oilPressure']);
+  for (const gauge of gauges) {
+    const source = body.frame.readings.find(row => row.gauge_key === gauge.gaugeKey);
+    expect(gauge.numericValue).toBe(source.value);
+    expect(gauge.angleDegrees).toBe(source.angle_deg);
+    expect(gauge.captureId).toBe(body.frame.capture_id);
+  }
+});
 test.each(['device', 'camera', 'duplicate', 'missing', 'normal', 'calibrated', 'timestamp', 'units', 'invalid-image'])('%s malformed frame is rejected', (kind) => {
   const b = fixture();
   if (kind === 'device') b.frame.device_id = 'GPS-002';
@@ -32,6 +47,11 @@ test('source ages and last-known state do not appear newly verified', () => {
   const f = fixture().frame;
   expect(frameGauges(f, NOW+20000).every((g) => g.status === 'Stale')).toBe(true);
   expect(frameGauges(f, NOW, 'last-known').every((g) => g.status === 'Stale')).toBe(true);
+});
+
+test('an empty or switched-off view is awaiting data, not a fabricated last-known stale reading', () => {
+  const gauges = frameGauges(null, NOW, 'waiting');
+  expect(gauges.every(g => g.status === 'Awaiting Data' && g.numericValue === null && g.angleDegrees === null)).toBe(true);
 });
 test('API uses authenticated loopback proxy, bounded response and no device secret', async () => {
   const fetchImpl = jest.fn(async () => ({ ok: true, headers: { get: () => 'application/json' }, text: async () => JSON.stringify(fixture()) }));

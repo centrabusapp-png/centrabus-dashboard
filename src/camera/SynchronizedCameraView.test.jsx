@@ -1,12 +1,12 @@
 import { fireEvent, render as renderPage, screen, waitFor, within, act } from '@testing-library/react';
 import {cloneElement} from 'react';
-import SynchronizedCameraView from './SynchronizedCameraView';
+import SynchronizedCameraView, { launcherPreviewDevice } from './SynchronizedCameraView';
 import { FRAME_GAUGE_KEYS } from './cameraFrameService';
 import { captureSynchronizedFrame, downloadCameraEvidence } from './cameraEvidence';
 jest.mock('./cameraEvidence',()=>({captureSynchronizedFrame:jest.fn(),downloadCameraEvidence:jest.fn()}));
 const NOW = Date.parse('2026-10-20T04:00:00.000Z'); const clock = () => NOW;
 // Most regressions exercise the enabled view. Default-off behavior has its own
-// test below; enabling is always an explicit user switch, not a product default.
+// test below; only the explicit local START EVERYTHING URL also opts in.
 const render=element=>{const ui=renderPage(cloneElement(element,{decode:element.props.decode||asyncDecode}));fireEvent.click(screen.getByRole('switch'));return ui;};
 const asyncDecode=async()=>{};
 function reply(device = 'GPS-001', sequence = 1) {
@@ -14,6 +14,35 @@ function reply(device = 'GPS-001', sequence = 1) {
     capture_id: `session:${sequence}`, captured_at: new Date(NOW-1000).toISOString(), image: { base64: 'AAAA' },
     readings: FRAME_GAUGE_KEYS.map((gauge_key) => ({ gauge_key, quality: 'detected', value: 35, unit: gauge_key.includes('Air') ? 'kg/cm2' : '%', angle_deg: 90, dial_percent: 35 })) } };
 }
+
+test('only the explicit local development launcher URL requests Pi2 preview', () => {
+  const local = { hostname: 'localhost', port: '3000', pathname: '/live-camera', search: '?startup=pi2' };
+  expect(launcherPreviewDevice(local, true)).toBe('GPS-002');
+  for (const override of [{ hostname: 'example.com' }, { pathname: '/' }, { search: '' }, { search: '?startup=pi1' }]) {
+    expect(launcherPreviewDevice({ ...local, ...override }, true)).toBeNull();
+  }
+  expect(launcherPreviewDevice(local, false)).toBeNull();
+});
+
+test('START EVERYTHING opens Pi2 preview once, does not capture, and honors Preview off', async () => {
+  window.history.replaceState({}, '', '/live-camera?startup=pi2&keep=example');
+  const read = jest.fn(async () => reply('GPS-002'));
+  const ui = renderPage(<SynchronizedCameraView service={{ read }} clock={clock} decode={asyncDecode} />);
+  try {
+    expect(screen.getByRole('tab', { name: /Pi2/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => expect(read).toHaveBeenCalledWith('GPS-002', expect.objectContaining({ preview: true })));
+    expect(window.location.search).toBe('?keep=example');
+    expect(downloadCameraEvidence).not.toHaveBeenCalled();
+    expect(captureSynchronizedFrame).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('switch'));
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText('Preview off · Readings hidden')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: /Pi1/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /Pi2/ }));
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+  } finally { ui.unmount(); window.history.replaceState({}, '', '/'); }
+});
 
 test('preview choice survives switching browser tabs and returns without another click',async()=>{
   const original=Object.getOwnPropertyDescriptor(document,'hidden');let hidden=false;
@@ -40,11 +69,56 @@ test('six actual observations render without invented physical condition or conf
   const service = { read: jest.fn(async () => reply()) };
   render(<SynchronizedCameraView service={service} clock={clock} />);
   await waitFor(() => expect(screen.getAllByText('35')).toHaveLength(6));
-  expect(screen.getAllByText(/Interpretation unverified/)).toHaveLength(1);
+  expect(screen.getByTitle(/Same-capture needle positions · Physical accuracy unverified/)).toBeInTheDocument();
   expect(screen.queryByText(/^Normal$/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Confidence/)).not.toBeInTheDocument();
   expect(service.read).toHaveBeenCalledWith('GPS-001', expect.objectContaining({ preview: true }));
   expect(screen.getByRole('button', { name: 'Capture' })).toBeEnabled();
+});
+
+test('CSV exports the currently displayed capture only after an explicit click, without PNG save or extra reads', async () => {
+  jest.clearAllMocks();
+  const frame = reply();
+  frame.frame.readings[3] = { ...frame.frame.readings[3], quality: 'uncertain', value: null, angle_deg: null, dial_percent: null };
+  const read = jest.fn(async () => frame); const saveCapture = jest.fn();
+  render(<SynchronizedCameraView service={{ read, saveCapture }} clock={clock} />);
+  await screen.findByText('Ready to export');
+  expect(downloadCameraEvidence).not.toHaveBeenCalled();
+  const reads = read.mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+  expect(downloadCameraEvidence).toHaveBeenCalledTimes(1);
+  const result = downloadCameraEvidence.mock.calls[0][0];
+  expect(result.filename).toMatch(/\.csv$/); expect(result.blob.type).toBe('text/csv;charset=utf-8');
+  expect(result.csv).toContain('"session:1"');
+  expect(result.csv).toContain('"Rear air pressure","uncertain","","kg/cm2","","","unverified"');
+  expect(read.mock.calls.length).toBe(reads);
+  expect(saveCapture).not.toHaveBeenCalled(); expect(captureSynchronizedFrame).not.toHaveBeenCalled();
+  expect(screen.getByText('CSV download requested.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('switch'));
+  expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled();
+});
+
+test('CSV is disabled for preview off, missing detection and stale analysis, even if live preview works', async () => {
+  const raw = reply(); raw.frame.readings.forEach(row => Object.assign(row, { quality: 'undetected', value: null, angle_deg: null, dial_percent: null }));
+  const ui = renderPage(<SynchronizedCameraView service={{ read: async () => raw }} clock={clock} decode={asyncDecode} />);
+  expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('switch'));
+  await screen.findByText('Camera active · Gauges not detected');
+  expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled();
+  const stale = reply(); stale.state = 'last-known';
+  ui.rerender(<SynchronizedCameraView service={{ read: async () => stale }} clock={clock} decode={asyncDecode} />);
+  await screen.findByText('Analysis stale · Values withheld');
+  expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled();
+});
+
+test('CSV rechecks capture age at the click instead of exporting a frame whose UI timer has not ticked yet', async () => {
+  jest.clearAllMocks(); let now = NOW;
+  render(<SynchronizedCameraView service={{ read: async () => reply() }} clock={() => now} />);
+  await screen.findByText('Ready to export');
+  now = NOW + 16000;
+  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+  expect(downloadCameraEvidence).not.toHaveBeenCalled();
+  expect(screen.getByText('CSV unavailable; wait for fresh readings.')).toBeInTheDocument();
 });
 
 test('partial same-capture observations show valid numbers and leave rejected gauges uncertain',async()=>{
@@ -87,8 +161,21 @@ test('Pi switch cancels old work and never pairs Pi1 image with Pi2 readings', a
   await waitFor(() => expect(screen.getAllByText('35')).toHaveLength(6));
   await act(async () => { late(reply()); });
   expect(screen.queryByRole('region', { name: 'Pi1 vehicle condition' })).not.toBeInTheDocument();
-  expect(within(screen.getByRole('region', { name: 'Pi2 vehicle condition' })).getByText(/GPS-002/)).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Pi2 vehicle condition' })).toHaveAttribute('data-device-id', 'GPS-002');
 });
+test('monitor retains all six values and angles without either bottom Details section', async () => {
+  const ui = render(<SynchronizedCameraView service={{read:async()=>reply()}} clock={clock}/>);
+  await waitFor(()=>expect(screen.getAllByText('35')).toHaveLength(6));
+  expect(screen.getAllByText('Angle: 90.00°')).toHaveLength(6);
+  expect(ui.container.querySelectorAll('.camera-condition-gauge.is-compact')).toHaveLength(6);
+  expect(ui.container.querySelectorAll('details')).toHaveLength(0);
+  expect(screen.queryByText('Camera & capture details')).not.toBeInTheDocument();
+  expect(screen.queryByText('Reading details')).not.toBeInTheDocument();
+  expect(screen.queryByText(/Open Pi2 Camera.cmd/)).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Capture'})).toBeEnabled();
+  expect(screen.getByText(/Fresh · 1s since capture/)).toBeInTheDocument();
+});
+
 test('last-known values are visibly stale, cannot capture, and missing gauges remain unavailable', async () => {
   const next = reply(); next.state = 'last-known'; delete next.frame.image.base64;
   next.frame.readings[0] = { ...next.frame.readings[0], quality: 'undetected', value: null, angle_deg: null, dial_percent: null };
@@ -117,7 +204,7 @@ test('real preview remains viewable with six undetected null gauges and no false
   await screen.findByText('Camera active · Gauges not detected');
   expect(screen.getAllByText('Not detected')).toHaveLength(6);
   expect(screen.queryByText('35')).not.toBeInTheDocument();
-  expect(screen.queryByText('Detected values · not calibrated')).not.toBeInTheDocument();
+  expect(screen.queryByText('Detected needle positions')).not.toBeInTheDocument();
   const image=await screen.findByRole('img');
   expect(image).toHaveAttribute('data-capture-id',raw.frame.capture_id);
   expect(screen.getByRole('button',{name:'Capture'})).toBeEnabled();
@@ -183,7 +270,7 @@ test('stale numbers stay hidden in the view and capture; preview off pauses brow
   expect(screen.queryByText('35')).not.toBeInTheDocument();
   await screen.findByAltText(/live preview session:99/);
   await waitFor(()=>expect(screen.getByRole('button',{name:'Capture'})).toBeEnabled());
-  expect(screen.getByText(/Capture source · current live image only/)).toBeInTheDocument();
+  expect(screen.getByText('Capture: live image only')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button',{name:'Capture'}));loadFrozenCapture();
   await waitFor(()=>expect(downloadCameraEvidence).toHaveBeenCalledTimes(1));
   const saved=captureSynchronizedFrame.mock.calls[0][0].frame;

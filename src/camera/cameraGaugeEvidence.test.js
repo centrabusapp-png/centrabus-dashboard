@@ -9,15 +9,17 @@ test('six displayed gauges freeze values, units, timestamps, confidence and actu
   const snapshot = snapshotGaugePanel(panel, 'GPS-001', 'test-camera');
   expect(snapshot.gauges).toHaveLength(6);
   expect(snapshot.gauges[0]).toMatchObject({ key: 'fuel', title: 'Fuel', value: '10', unit: 'fixture unit',
-    capturedAt: '1970-01-01T00:00:01.000Z', status: 'Validated reading', confidence: 'Confidence 95%' });
+    capturedAt: '1970-01-01T00:00:01.000Z', status: 'Validated reading', confidence: 'Confidence 95%', angle:'Angle: 115.02°' });
   expect(snapshot.gauges[0].svgText).toContain('rotate(12deg)');
   expect(snapshot.gauges[0].svgText).toContain('transition: none');
   panel.querySelector('.camera-gauge-value').firstChild.textContent = '99';
   panel.querySelector('time').setAttribute('datetime', 'later');
   panel.querySelector('.camera-gauge-needle').style.transform = 'rotate(90deg)';
+  panel.querySelector('.camera-gauge-angle').textContent = 'Angle: 90.00°';
   expect(snapshot.gauges[0].value).toBe('10');
   expect(snapshot.gauges[0].capturedAt).toBe('1970-01-01T00:00:01.000Z');
   expect(snapshot.gauges[0].svgText).not.toContain('rotate(90deg)');
+  expect(snapshot.gauges[0].angle).toBe('Angle: 115.02°');
 });
 
 test('React-style namespace SVG serializes to valid XML without a duplicate xmlns',()=>{
@@ -68,9 +70,16 @@ test('composition places all six dials to the right, without a new data request'
   drawGaugeEvidence(context, snapshot, images, 960, 60);
   expect(context.drawImage).toHaveBeenCalledTimes(6);
   expect(context.drawImage.mock.calls.every(([, x]) => x > 960)).toBe(true);
-  expect(new Set(context.drawImage.mock.calls.map(([, , y]) => y)).size).toBe(2);
+  expect(new Set(context.drawImage.mock.calls.map(([, x]) => x)).size).toBe(2);
+  expect(new Set(context.drawImage.mock.calls.map(([, , y]) => y)).size).toBe(3);
+  expect(snapshot.gauges.map(g => g.key)).toEqual(['fuel','coolant','frontAir','rearAir','battery','oilPressure']);
+  const titles = context.fillText.mock.calls.filter(([text]) => snapshot.gauges.some(g => g.title === text));
+  expect(titles.map(([title]) => title)).toEqual(['Fuel','Coolant','Front air pressure','Rear air pressure','Battery','Oil']);
+  expect(titles[0][2]).toBe(titles[1][2]);
+  expect(titles[2][2]).toBe(titles[3][2]);
+  expect(titles[4][2]).toBe(titles[5][2]);
   expect(context.fillText.mock.calls.map(([text]) => text)).toEqual(expect.arrayContaining([
-    'Fuel', 'Oil', 'Coolant', 'Front air pressure', 'Battery', 'Rear air pressure', '10', 'fixture unit', 'Confidence 95%',
+    'Fuel', 'Oil', 'Coolant', 'Front air pressure', 'Battery', 'Rear air pressure', '10', 'fixture unit', 'Confidence 95%', 'Angle: 115.02°',
   ]));
   decoded.release();
 });

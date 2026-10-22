@@ -58,6 +58,7 @@ import App, {
   deriveMonitoringState,
   SummaryCards,
   VehicleConditionSummary,
+  VehicleConditionPage,
   VehicleConditionOverview,
   FleetHealthCard,
   NeedsAttentionCard,
@@ -66,6 +67,8 @@ import App, {
   getTripRoutePoints,
   useRoadRoute,
   AssignedRouteLine,
+  LeafletMapPanel,
+  visibleRouteName,
   getRouteAssessmentPresentation,
   getMarkerGpsFreshness,
   isMarkerEligible,
@@ -74,6 +77,80 @@ import App, {
   useAlertNotification,
   AlertNotification,
 } from './App';
+
+describe('retired corridor presentation', () => {
+  const bus = { id: 'corridor-bus', plateNumber: 'BUS 04', status: 'active', routeName: 'FPIP–LIMA',
+    gps: { latitude: 14.095, longitude: 121.16, gpsUpdatedAt: 100000, rawSpeedKmh: 0.5, routeStatus: 'ON ROUTE', distanceFromRouteM: 4 } };
+  test.each(['LIMA–FPIP', 'FPIP–LIMA', 'lima - fpip', ' FPIP — LIMA ', 'LIMA→FPIP'])('hides %s without altering other named routes', (name) => {
+    expect(visibleRouteName(name)).toBeNull();
+    expect(visibleRouteName('Route A')).toBe('Route A');
+  });
+  test('condition page, details and marker popup omit retired labels without mutating source records', () => {
+    const reverse = { ...bus, id: 'reverse', plateNumber: 'BUS 159', routeName: 'LIMA–FPIP' };
+    const original = JSON.stringify([bus, reverse]);
+    const ui = render(<><VehicleConditionPage buses={[bus, reverse]} selectedBus={reverse} selectedBusId={reverse.id}
+      fleetStatus="ready" nowMs={105000} frameService={{ enabled: false }} onSelectBus={jest.fn()} onNavigate={jest.fn()} />
+      <BusDetailsPanel bus={bus} nowMs={105000} onNavigate={jest.fn()} /><BusMarkerCallout bus={reverse} nowMs={105000} /></>);
+    expect(ui.container).not.toHaveTextContent(/(?:LIMA\s*[-–—→]\s*FPIP|FPIP\s*[-–—→]\s*LIMA)/i);
+    expect(JSON.stringify([bus, reverse])).toBe(original);
+    expect(screen.getAllByText('GPS Status')).toHaveLength(1);
+  });
+  test.each([true, false])('fleet map compact=%s does not draw or fetch a route line while GPS markers remain', (compact) => {
+    const selectedTrip = { status: 'Active', routeLabel: 'FPIP–LIMA', originCoordinates: { lat: 14.135645, lng: 121.122123 }, destinationCoordinates: { lat: 14.008703, lng: 121.169172 } };
+    const ui = render(<LeafletMapPanel compact={compact} selectedBus={bus} selectedTrip={selectedTrip} monitoredBuses={[bus]}
+      nowMs={105000} routeSafeRadiusM={100} onSelect={jest.fn()} onCenterBus={jest.fn()} onNavigate={jest.fn()} showDetails />);
+    expect(screen.queryByTestId('assigned-route-line')).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Marker 14.095,121.16' })).toBeInTheDocument();
+    expect(ui.container).not.toHaveTextContent('FPIP–LIMA');
+  });
+});
+
+describe('compact Vehicle Condition page', () => {
+  const bus = { id: 'internal-bus-long-id', plateNumber: 'BUS 159', status: 'active', routeName: 'LIMA–FPIP',
+    gps: { latitude: 14, longitude: 121, gpsUpdatedAt: 100000, rawSpeedKmh: 0.5, routeStatus: 'ON ROUTE', distanceFromRouteM: 4 } };
+  const buses = [bus, { ...bus, id: 'second-internal-id', plateNumber: 'BUS 04' }];
+  test('shows important controls and six compact gauges without duplicate explanations or internal IDs', () => {
+    const onNavigate = jest.fn();
+    const { container } = render(<VehicleConditionPage buses={buses} selectedBus={bus} selectedBusId={bus.id}
+      fleetStatus="ready" nowMs={105000} frameService={{ enabled: false }} onSelectBus={jest.fn()} onNavigate={onNavigate} />);
+    expect(screen.getByRole('heading', { name: 'Gauge readings' })).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(6);
+    expect(container.querySelectorAll('.camera-condition-gauge.is-compact')).toHaveLength(6);
+    expect(screen.getByText('GPS Online · 5s ago')).toBeInTheDocument();
+    expect(screen.getByText('0.5 km/h')).toBeInTheDocument();
+    expect(screen.getByText('On Route')).toBeInTheDocument();
+    expect(screen.queryByText(/Bus ID:/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Needs Attention')).not.toBeInTheDocument();
+    expect(screen.queryByText('Quick Actions')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Gauge details will appear/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Force Refresh Data')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Live camera' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('live-camera');
+    fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    expect(onNavigate).toHaveBeenLastCalledWith({ page: 'records', bus: bus.id, tab: 'condition-history' });
+    fireEvent.click(screen.getByRole('button', { name: 'View selected bus on map' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('map');
+  });
+  test('bus search and selection still work by hidden internal ID or visible plate', () => {
+    const onSelectBus = jest.fn();
+    render(<VehicleConditionPage buses={buses} selectedBus={bus} selectedBusId={bus.id}
+      fleetStatus="ready" nowMs={105000} frameService={{ enabled: false }} onSelectBus={onSelectBus} onNavigate={jest.fn()} />);
+    const search = screen.getByRole('textbox', { name: 'Search buses by plate number or Bus ID' });
+    fireEvent.change(search, { target: { value: 'second-internal' } });
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('option'));
+    expect(onSelectBus).toHaveBeenCalledWith(buses[1]);
+    fireEvent.change(search, { target: { value: '159' } });
+    expect(screen.getByRole('option')).toHaveTextContent('BUS 159');
+  });
+  test('compact bus summary does not present an old route assessment as current', () => {
+    render(<BusDetailsPanel compact bus={bus} nowMs={100000 + 13 * 3600000} onNavigate={jest.fn()} />);
+    expect(screen.getByText('Last known: On Route')).toHaveAttribute('data-route-tone', 'unavailable');
+    expect(screen.getByText(/GPS Stale/)).toBeInTheDocument();
+    expect(screen.queryByText(/^On Route$/)).not.toBeInTheDocument();
+  });
+});
 
 describe('route provenance, overlay direction and last-known presentation', () => {
   const forward = { routeLabel: 'FPIP–LIMA', originCoordinates: { lat: 14.135645, lng: 121.122123 }, destinationCoordinates: { lat: 14.008703, lng: 121.169172 } };
@@ -475,7 +552,7 @@ test('builds alerts only from current bus condition, real confirmed route state,
   expect(alerts.find((alert) => alert.category === 'Route')).toMatchObject({
     id: 'route-deviation-bus-live',
     severity: 'Critical',
-    description: '10.46 km from assigned route · LIMA–FPIP.',
+    description: '10.46 km from assigned route.',
     timestampMs: 1000,
   });
 });

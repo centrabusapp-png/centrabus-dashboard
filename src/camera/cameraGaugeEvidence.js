@@ -24,7 +24,7 @@ export function snapshotGaugePanel(panel, deviceId, cameraId) {
     // attribute. A plain setAttribute produces a second xmlns during XML
     // serialization, which browsers reject when decoding the capture image.
     clone.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', 'http://www.w3.org/2000/svg');
-    clone.setAttribute('width', '240'); clone.setAttribute('height', '140');
+    clone.setAttribute('width', '200'); clone.setAttribute('height', '128');
     for (const original of svg.querySelectorAll('text, .camera-gauge-needle')) {
       const index = [...svg.querySelectorAll('*')].indexOf(original);
       const target = clone.querySelectorAll('*')[index];
@@ -46,7 +46,8 @@ export function snapshotGaugePanel(panel, deviceId, cameraId) {
       value: node.querySelector('.camera-gauge-value')?.firstChild?.textContent?.trim().slice(0, 64) || '—',
       unit: text(node, '.camera-gauge-value span'), status: text(node, '.camera-gauge-quality'),
       capturedAt: node.querySelector('time')?.getAttribute('datetime') || null,
-      captureLabel: text(node, '.camera-gauge-capture'), confidence: text(node, '.camera-gauge-confidence'), svgText };
+      captureLabel: text(node, '.camera-gauge-capture'), confidence: text(node, '.camera-gauge-confidence'),
+      angle: text(node, '.camera-gauge-angle'), svgText };
   });
   return { deviceId, association: text(panel, '.camera-section-detail'),
     status: text(panel, '.camera-condition-source strong'), gauges };
@@ -73,17 +74,19 @@ export function drawGaugeEvidence(context, snapshot, images, left, top) {
   context.fillText(snapshot.association, left + 20, top + 54, 860);
   context.fillText(snapshot.status || 'Readings not verified', left + 20, top + 76, 860);
   snapshot.gauges.forEach((gauge, index) => {
-    const x = left + (index % 3) * 300 + 10, y = top + 92 + Math.floor(index / 3) * 310;
-    context.fillStyle = '#ffffff'; context.fillRect(x, y, 280, 298);
+    const x = left + (index % 2) * 450 + 10, y = top + 92 + Math.floor(index / 2) * 207;
+    context.fillStyle = '#ffffff'; context.fillRect(x, y, 430, 197);
     context.fillStyle = '#334155'; context.font = 'bold 17px sans-serif';
-    context.fillText(gauge.title, x + 16, y + 27, 250);
-    context.drawImage(images[index], x + 20, y + 34, 240, 140);
+    context.fillText(gauge.title, x + 16, y + 27, 398);
+    context.drawImage(images[index], x + 8, y + 38, 200, 128);
     context.fillStyle = '#0f172a'; context.font = 'bold 25px sans-serif';
-    context.fillText(gauge.value, x + 16, y + 196, 250);
-    context.font = '14px sans-serif'; context.fillText(gauge.unit, x + 16, y + 216, 250);
+    context.fillText(gauge.value, x + 216, y + 64, 198);
+    context.font = '14px sans-serif'; context.fillText(gauge.unit, x + 216, y + 85, 198);
+    context.font = 'bold 13px sans-serif'; context.fillText(gauge.angle, x + 216, y + 110, 198);
     context.fillStyle = '#64748b'; context.font = '12px sans-serif';
-    context.fillText(gauge.status, x + 16, y + 236, 250);
-    context.fillText(gauge.capturedAt || gauge.captureLabel, x + 16, y + 255, 250);
-    context.fillText(gauge.confidence, x + 16, y + 275, 250);
+    context.fillText(gauge.status, x + 216, y + 132, 198);
+    context.font = '11px sans-serif';
+    context.fillText(gauge.capturedAt || gauge.captureLabel, x + 16, y + 168, 398);
+    context.fillText(gauge.confidence, x + 16, y + 186, 398);
   });
 }

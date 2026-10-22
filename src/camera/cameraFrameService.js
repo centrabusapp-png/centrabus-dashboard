@@ -1,4 +1,6 @@
-export const FRAME_GAUGE_KEYS = ['fuel', 'oilPressure', 'coolant', 'frontAir', 'battery', 'rearAir'];
+import { LIVE_GAUGE_KEYS } from './liveCameraGaugeModel';
+
+export const FRAME_GAUGE_KEYS = LIVE_GAUGE_KEYS;
 const id = (s) => typeof s === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(s);
 const utc = (s) => typeof s === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(s) && Number.isFinite(Date.parse(s)) && new Date(s).toISOString() === s;
 const boundedNumber = (n, min, max) => typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
@@ -38,10 +40,11 @@ export function frameGauges(frame, now = Date.now(), state = 'live') {
   return FRAME_GAUGE_KEYS.map((key) => {
     const r = frame?.readings.find((row) => row.gauge_key === key);
     const ageMs = frame ? now - Date.parse(frame.captured_at) : null;
-    const stale = state !== 'live' || ageMs < -2000 || ageMs > 15000;
+    const stale = Boolean(frame && (state !== 'live' || ageMs < -2000 || ageMs > 15000));
     return { id: `${frame?.capture_id || 'missing'}:${key}`, gaugeKey: key, cameraId: frame?.camera_id,
       captureId: frame?.capture_id, numericValue: r?.value ?? null, unit: r?.unit, confidence: null,
       quality: r?.quality || 'undetected', capturedAt: frame?.captured_at, ageMs: Math.max(0, ageMs || 0),
+      angleDegrees: r?.angle_deg ?? null,
       status: stale ? 'Stale' : r?.quality === 'detected' ? 'Reading Available' : 'Awaiting Data',
       unverified: true, dialPositionPercent: r?.dial_percent ?? null };
   });
