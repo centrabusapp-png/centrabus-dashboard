@@ -52,6 +52,7 @@ export default defineConfig(({ mode }) => {
       'process.env.VITE_GPS_INGESTION_URL': JSON.stringify(env.VITE_GPS_INGESTION_URL || ''),
       'process.env.VITE_CAMERA_READINGS_ENABLED': JSON.stringify(env.VITE_CAMERA_READINGS_ENABLED || ''),
       'process.env.VITE_CAMERA_FRAMES_ENABLED': JSON.stringify(env.VITE_CAMERA_FRAMES_ENABLED || 'false'),
+      'process.env.VITE_CLOUD_CAMERA_MODE': JSON.stringify(env.VITE_CLOUD_CAMERA_MODE || ''),
     },
     server: {
       host: env.VITE_REMOTE_WIFI_ENABLED === 'true' || env.VITE_CAMERA_FRAMES_ENABLED === 'true' ? '127.0.0.1' : '0.0.0.0',

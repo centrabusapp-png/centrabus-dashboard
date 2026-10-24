@@ -29,6 +29,12 @@ function validateDeploymentConfig(env) {
   for (const flag of ['VITE_CAMERA_READINGS_ENABLED', 'VITE_WIFI_STATUS_ENABLED']) {
     if (env[flag] != null && env[flag] !== '' && env[flag] !== 'false') errors.push(`${flag} must remain false for this release.`);
   }
+  if (env.VITE_CAMERA_FRAMES_ENABLED === 'true' && env.VITE_CLOUD_CAMERA_MODE !== 'approved-cloud-gps-camera') {
+    errors.push('Cloud camera frames require the explicit approved-cloud-gps-camera mode.');
+  }
+  if (env.VITE_CLOUD_CAMERA_MODE && env.VITE_CLOUD_CAMERA_MODE !== 'approved-cloud-gps-camera') {
+    errors.push('Unknown public cloud camera mode.');
+  }
   if (Object.keys(env).some((name) => name.startsWith('VITE_')
       && /SECRET|PASSWORD|PRIVATE|SERVICE.?ROLE|DEVICE.?KEY|ACCESS.?TOKEN|REFRESH.?TOKEN/i.test(name))) {
     errors.push('Remove private credential variables from the public VITE_ namespace.');

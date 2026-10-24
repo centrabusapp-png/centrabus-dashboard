@@ -103,15 +103,14 @@ function media(cameraId = 'TEST-CAM-1') {
     stream: { getTracks: () => [track], getVideoTracks: () => [track], getAudioTracks: () => [] } };
 }
 
-test('preview on/off releases video only and does not reset or stop gauge updates', async () => {
+test('automatic video does not reset or stop gauge updates after a stream ends', async () => {
   const stream = media(); const videoService = { isConfigured: () => true, open: jest.fn(async () => stream) };
   const readings = { readLatest: jest.fn(async () => cameraSnapshot()) };
   renderPage({ service: videoService, gaugeService: readings });
   await within(panel()).findByText('42');
-  const toggle = screen.getByRole('switch', { name: 'Pi1 camera preview' });
-  fireEvent.click(toggle); await screen.findByText('Waiting for video');
-  expect(toggle).toHaveAttribute('aria-checked', 'true');
-  fireEvent.click(toggle);
+  await screen.findByText('Waiting for video');
+  expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  act(() => stream.track.dispatchEvent(new Event('ended')));
   expect(stream.close).toHaveBeenCalledTimes(1); expect(stream.track.stop).toHaveBeenCalledTimes(1);
   expect(within(panel()).getByText('42')).toBeInTheDocument();
   expect(readings.readLatest).toHaveBeenCalledTimes(1);
@@ -121,10 +120,11 @@ test('preview on/off releases video only and does not reset or stop gauge update
 });
 
 test('preview and numerical camera identity mismatch withholds values', async () => {
-  renderPage({ service: { isConfigured: () => true, open: async () => media('OTHER-CAMERA') },
+  let finish;
+  renderPage({ service: { isConfigured: () => true, open: () => new Promise(resolve => { finish = resolve; }) },
     gaugeService: { readLatest: async () => cameraSnapshot() } });
   await within(panel()).findByText('42');
-  fireEvent.click(screen.getByRole('switch', { name: 'Pi1 camera preview' }));
+  await act(async () => finish(media('OTHER-CAMERA')));
   await screen.findByText(/preview and gauge readings identify different cameras/);
   expect(within(panel()).queryByText('42')).not.toBeInTheDocument();
   expect(screen.queryByTestId('fuel-needle')).not.toBeInTheDocument();

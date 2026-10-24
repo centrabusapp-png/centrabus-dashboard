@@ -67,9 +67,15 @@ test('fast live endpoint cannot substitute detected readings for the independent
   const fetchImpl=jest.fn(async()=>({ok:true,headers:{get:()=> 'application/json'},text:async()=>JSON.stringify(body)}));
   const service=createCameraFrameService({enabled:true,config:{configured:true},getSession:async()=>({data:{session:{access_token:'synthetic'}}}),fetchImpl});
   expect(service.fastPreview).toBe(true);
+  expect(service.previewOnly).toBe(false);
   await expect(service.readLive('GPS-001',{preview:true})).resolves.toHaveProperty('state','live');
   expect(fetchImpl.mock.calls[0][0]).toBe('/api/camera-frames/devices/GPS-001/live?preview=1');
   body=fixture();await expect(service.readLive('GPS-001',{preview:true})).rejects.toThrow('live-cannot-assert-gauges');
+});
+test('preview-only launcher mode is explicitly labeled on the camera service',()=>{
+  const service=createCameraFrameService({enabled:true,previewOnly:true,config:{configured:true},
+    getSession:async()=>({data:{session:{access_token:'synthetic'}}}),fetchImpl:async()=>{throw Error('not called');}});
+  expect(service.previewOnly).toBe(true);
 });
 test('absent admin, HTTP error, cancellation and oversized reply cannot yield readings', async () => {
   for (const response of [{ ok: false }, { ok: true, headers: { get: () => 'text/html' } }, { ok: true, headers: { get: () => 'application/json' }, text: async () => 'x'.repeat(2850001) }]) {

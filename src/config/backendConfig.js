@@ -14,6 +14,7 @@ export function resolveBackendConfig({
   wifiStatusEnabled = process.env.VITE_WIFI_STATUS_ENABLED,
   devicePresenceEnabled = process.env.VITE_DEVICE_PRESENCE_ENABLED,
   remoteWifiEnabled = process.env.VITE_REMOTE_WIFI_ENABLED,
+  cloudCameraMode = process.env.VITE_CLOUD_CAMERA_MODE,
 } = {}) {
   const production = nodeEnv === 'production';
   const explicit = typeof backendUrl === 'string' && backendUrl.trim() !== '';
@@ -35,6 +36,7 @@ export function resolveBackendConfig({
     } catch { /* Invalid deployment values never become relative requests. */ }
   }
   return Object.freeze({
+    cloudCameraEnabled: production && origin !== null && cloudCameraMode === 'approved-cloud-gps-camera',
     configured: origin !== null,
     origin,
     reason,

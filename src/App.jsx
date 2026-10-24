@@ -49,6 +49,8 @@ import { cameraReadingsFeatureEnabled } from './camera/cameraReadings';
 import { AnimatedCameraGauge } from './camera/LiveCameraGauges';
 import { LIVE_GAUGE_PLACEHOLDERS } from './camera/liveCameraGaugeModel';
 import './VehicleConditionPage.css';
+import ConditionHistoryExport from './camera/ConditionHistoryExport';
+import { createConditionHistoryService } from './camera/conditionHistoryCsv';
 
 const ROUTE_DEVIATION_DEFAULT_M = 100;
 const SYSTEM_HEALTH_THRESHOLDS = {
@@ -67,7 +69,8 @@ const WIFI_STATUS_SERVICE = createWifiStatusService({
 const DEVICE_PRESENCE_SERVICE = createDevicePresenceService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
 const REMOTE_WIFI_SERVICE = createRemoteWifiService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
 const CAMERA_FRAME_SERVICE = createCameraFrameService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession(),
-  enabled: process.env.NODE_ENV !== 'production' && process.env.VITE_CAMERA_FRAMES_ENABLED === 'true' });
+  enabled: process.env.VITE_CAMERA_FRAMES_ENABLED === 'true' && (process.env.NODE_ENV !== 'production' || BACKEND_CONFIG.cloudCameraEnabled) });
+const CONDITION_HISTORY_SERVICE = createConditionHistoryService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
 const CENTRABUS_LOCKED_LOGO_SRC = '/centrabus-locked-logo.png';
 const loadGpsHistoryExplorer = () => import('./records/GpsHistoryExplorer');
 const NOTIFICATION_PREFERENCES_KEY = 'centrabus.notificationPreferences';
@@ -2947,7 +2950,7 @@ function getVehicleConditionDisplayBus(bus) {
 }
 
 export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashboard', onNavigate,
-  cameraEnabled = cameraReadingsFeatureEnabled(), cameraService, cameraCalibration, frameService = CAMERA_FRAME_SERVICE }) {
+  cameraEnabled = cameraReadingsFeatureEnabled(), cameraService, cameraCalibration, frameService = CAMERA_FRAME_SERVICE, historyService = CONDITION_HISTORY_SERVICE }) {
   const bus = getVehicleConditionDisplayBus(suppliedBus);
   const [refreshState, setRefreshState] = useState({ status: 'idle', message: '' });
 
@@ -2995,6 +2998,7 @@ export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashb
           {hasConditionData && <StatusBadge value={overallCondition} />}
           <button type="button" onClick={() => onNavigate('live-camera')}><Camera size={14} />Live camera</button>
           <button type="button" onClick={() => onNavigate({ page: 'records', bus: bus.id, tab: 'condition-history' })}><FileClock size={14} />History</button>
+          <ConditionHistoryExport key={bus.id} bus={bus} service={historyService} />
         </div>
       </header>
       {frameService?.enabled ? <CameraFrameGaugePanel compact key={bus.id} busId={bus.id} service={frameService} />
@@ -4917,7 +4921,7 @@ export function AuthorizedDashboard({ user }) {
   let pageContent;
   switch (activePage) {
     case 'map': pageContent = <LeafletMapPanel selectedBus={mapSelectedBus} selectedTrip={mapSelectedTrip} onSelect={(b) => setSelectedBusId(b.id)} monitoredBuses={mapBuses} routeSafeRadiusM={ROUTE_DEVIATION_DEFAULT_M} onCenterBus={() => {}} resizeSignal={`${selectedBusId}-${mapStatus}-${mapTripStatus}`} autoCenterKey={`${mapStatus}-${mapTripStatus}`} showDetails nowMs={gpsNowMs} />; break;
-    case 'live-camera': pageContent = <LiveCameraView authorized={Boolean(user?.id)} buses={busesWithGps} frameService={CAMERA_FRAME_SERVICE} />; break;
+    case 'live-camera': pageContent = <LiveCameraView authorized={Boolean(user?.id)} buses={busesWithGps} frameService={CAMERA_FRAME_SERVICE} historyService={CONDITION_HISTORY_SERVICE} />; break;
     case 'vehicle-condition': pageContent = <VehicleConditionPage buses={telemetryBuses} fleetStatus={busesStatus} selectedBus={selectedBus} selectedBusId={selectedBusId} onSelectBus={(b) => setSelectedBusId(b.id)} onNavigate={setActivePage} nowMs={gpsNowMs} />; break;
     case 'alerts': pageContent = <AlertsPage alerts={alerts} buses={telemetryBuses} onUpdateAlert={updateAlert} initialCategory={alertCategory} initialStatus={alertStatus} selectedAlertId={alertId} />; break;
     case 'records': pageContent = <LoadablePanel load={loadGpsHistoryExplorer} loadingLabel="Loading activity records…" buses={telemetryBuses} initialBusId={selectedTab === 'condition-history' ? selectedBusId || '' : ''} />; break;

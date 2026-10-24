@@ -67,3 +67,19 @@ test('brief delivery failures do not blank a still-fresh frame; auth rejection i
   service.readLive.mockRejectedValue(Error('camera-not-ready'));
   await waitFor(()=>expect(latest.current).toBeNull());expect(screen.queryByRole('img')).not.toBeInTheDocument();
 });
+
+test('distinguishes waiting for a Pi publisher, missing enrollment, and a transport reconnect',async()=>{
+  const latest={current:null};
+  const service={readLive:jest.fn(async()=>({state:'waiting',frame:null}))};
+  const props={device,service,enabled:true,clock,decode:async()=>{},latestFrameRef:latest,onAvailability:()=>{}};
+  const ui=render(<FastLivePreview {...props}/>);
+  expect(await screen.findByText('Waiting for Pi1 camera publisher')).toBeInTheDocument();
+  expect(screen.getByText('Waiting for a fresh RAM-only camera frame')).toBeInTheDocument();
+  service.readLive.mockResolvedValue({state:'not-enrolled',frame:null});
+  await waitFor(()=>expect(screen.getByText('Camera not enrolled')).toBeInTheDocument());
+  expect(screen.getByText('Camera enrollment is required before Pi frames can be accepted')).toBeInTheDocument();
+  service.readLive.mockRejectedValue(Error('camera-temporary-unavailable'));
+  await waitFor(()=>expect(screen.getByText('Reconnecting to camera preview')).toBeInTheDocument());
+  expect(screen.getByText('Connection interrupted · retrying for a fresh frame')).toBeInTheDocument();
+  ui.unmount();
+});

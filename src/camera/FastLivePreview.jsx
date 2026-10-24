@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { VideoOff } from 'lucide-react';
+const noop = () => {};
 
 // Latest-only, bounded-rate polling. No overlapping requests, frame history,
 // localStorage, IndexedDB, service worker, recording or automatic download.
-export default function FastLivePreview({ device, service, enabled, clock, decode, latestFrameRef, onAvailability }) {
+export default function FastLivePreview({ device, service, enabled, clock, decode, latestFrameRef, onAvailability, onStateChange = noop }) {
   const [frame, setFrame] = useState(null);
   const [now, setNow] = useState(clock);
-  const [reconnecting, setReconnecting] = useState(false);
+  const [previewState, setPreviewState] = useState('waiting');
   const last = useRef(null);
   useEffect(() => {
     let active = true, timer, controller = null, inFlight = false, generation = 0;
     const clearFrame = () => { last.current = null; latestFrameRef.current = null; setFrame(null); };
-    setFrame(null); setReconnecting(false); last.current = null; latestFrameRef.current = null;
+    setFrame(null); setPreviewState('waiting'); last.current = null; latestFrameRef.current = null;
     if (!enabled) return undefined;
     const schedule = (delay) => {
       clearTimeout(timer);
@@ -37,12 +38,13 @@ export default function FastLivePreview({ device, service, enabled, clock, decod
         }
         if (active && request === generation && !document.hidden) {
           last.current = next; latestFrameRef.current = next; setFrame(next); setNow(clock());
-          setReconnecting(!next);
+          setPreviewState(reply.state === 'not-enrolled' ? 'not-enrolled' : next ? 'live' : 'waiting');
         }
       } catch (error) { if (active && request === generation) {
         const age=last.current ? clock()-Date.parse(last.current.captured_at) : Infinity;
-        if(error?.message!=='camera-temporary-unavailable'||age>2000||age < -2000) clearFrame();
-        setReconnecting(error?.message==='camera-temporary-unavailable');
+        const temporary = error?.message === 'camera-temporary-unavailable';
+        if (!temporary || age > 2000 || age < -2000) clearFrame();
+        setPreviewState(temporary ? 'reconnecting' : 'unavailable');
       } }
       finally { inFlight = false; if (controller === currentController) controller = null;
         schedule(Math.max(0, 125 - (clock() - started))); }
@@ -57,17 +59,27 @@ export default function FastLivePreview({ device, service, enabled, clock, decod
   }, [device.deviceId, service, enabled, clock, decode, latestFrameRef]);
   useEffect(() => { const timer = setInterval(() => setNow(clock()), 250); return () => clearInterval(timer); }, [clock]);
   const fresh = enabled && frame && now - Date.parse(frame.captured_at) <= 2000 && now - Date.parse(frame.captured_at) >= -2000;
+  useEffect(() => { onStateChange(previewState); }, [previewState, onStateChange]);
+  const headline = !enabled ? 'Preview is off'
+    : previewState === 'reconnecting' ? 'Reconnecting to camera preview'
+      : previewState === 'not-enrolled' ? 'Camera not enrolled'
+        : previewState === 'unavailable' ? 'Preview service unavailable'
+          : `Waiting for ${device.shortName} camera publisher`;
+  const status = previewState === 'reconnecting' ? 'Connection interrupted · retrying for a fresh frame'
+    : previewState === 'not-enrolled' ? 'Camera enrollment is required before Pi frames can be accepted'
+      : previewState === 'unavailable' ? 'Could not read the live preview service · check the laptop backend and sign-in'
+        : 'Waiting for a fresh RAM-only camera frame';
   useEffect(() => { onAvailability(Boolean(fresh)); }, [fresh, onAvailability]);
   return <>
     <div className="camera-preview-viewport relative aspect-video w-full overflow-hidden bg-[#111827]" aria-label="Independent live preview">
       {fresh ? <img src={`data:image/jpeg;base64,${frame.image.base64}`} alt={`${device.shortName} live preview ${frame.capture_id}`}
         data-capture-id={frame.capture_id} className="h-full w-full object-contain" />
         : <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-slate-300"><VideoOff size={36} />
-          <strong>{enabled ? reconnecting ? 'Reconnecting to camera preview' : 'Waiting for live RAM-only camera' : 'Preview is off'}</strong></div>}
+          <strong>{headline}</strong></div>}
     </div>
     <p role="status" className="camera-preview-freshness px-5 pt-3 text-xs text-slate-500">{fresh
-      ? reconnecting ? 'Reconnecting · last received frame · not recorded' : 'Live preview · RAM only · not recorded'
-      : reconnecting ? 'Connection interrupted · waiting for a fresh frame' : 'No fresh live image'}
+      ? previewState === 'reconnecting' ? 'Reconnecting · last received frame · not recorded' : 'Live preview · RAM only · not recorded'
+      : status}
       {fresh && ` · frame age ${Math.max(0, now - Date.parse(frame.captured_at))} ms`}</p>
   </>;
 }

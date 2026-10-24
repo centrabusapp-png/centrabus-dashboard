@@ -71,6 +71,24 @@
 .condition-page-actions { gap: 6px; }
 .condition-page-actions button, .condition-bus-status button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 9px; border: 1px solid #e2e8f0; border-radius: 9px; font-size: 11px; font-weight: 700; color: #475569; background: white; }
 .condition-page-actions button:hover, .condition-bus-status button:hover { color: #8e1f2f; background: #fff8f8; border-color: #e9c3c8; }
+.condition-page-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.condition-export-notice { font-size: 10px; color: #0f766e; }
+.condition-export-dialog { position: fixed; inset: 0; width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); margin: auto; overflow: auto; padding: 22px; border: 1px solid #e2e8f0; border-radius: 18px; background: white; color: #334155; box-shadow: 0 24px 80px #0f172a35; }
+.condition-export-dialog::backdrop { background: #0f172a65; }
+.condition-export-dialog header, .condition-export-dialog footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.condition-export-dialog h2 { font-size: 18px; font-weight: 800; color: #0f172a; }
+.condition-export-dialog header p { margin-top: 3px; font-size: 12px; color: #64748b; }
+.condition-export-dialog button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 9px; font-size: 12px; font-weight: 700; background: white; }
+.condition-export-dialog button:focus-visible, .condition-export-dialog input:focus-visible { outline: 2px solid #a1262f; outline-offset: 3px; }
+.condition-export-note { margin: 16px 0; color: #64748b; font-size: 12px; line-height: 1.6; }
+.condition-export-period { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.condition-export-period label { display: grid; gap: 6px; min-width: 0; font-size: 12px; font-weight: 700; }
+.condition-export-period input { min-width: 0; width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: white; font-size: 12px; }
+.condition-export-error { margin: 14px 0; color: #b91c1c; font-size: 12px; line-height: 1.6; }
+.condition-export-dialog footer { justify-content: flex-end; margin-top: 20px; }
+.condition-export-dialog button[type="submit"] { background: #8e1f2f; border-color: #8e1f2f; color: white; }
+.condition-export-dialog button:disabled { opacity: .5; cursor: wait; }
+@media (max-width: 480px) { .condition-export-period { grid-template-columns: minmax(0, 1fr); } }
 .condition-compact-page button:focus-visible, .condition-compact-page input:focus-visible { outline: 2px solid #a1262f; outline-offset: 3px; }
 .condition-camera-snapshot { display: flex; flex-direction: column; min-height: 0; padding: 10px 12px 12px; }
 .condition-camera-status { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 8px; font-size: 11px; line-height: 1.5; color: #64748b; }
