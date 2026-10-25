@@ -44,7 +44,9 @@ test('Vercel deployment uses active Vite output, deferred guarded build and know
   for (const source of ['/live-map', '/alerts', '/vehicle-condition']) {
     assert.ok(config.rewrites.some((entry) => entry.source === source && entry.destination === '/index.html'));
   }
-  assert.ok(!config.rewrites.some((entry) => entry.source.includes('api')));
+  const fallback = config.rewrites.at(-1);
+  const matches = new RegExp('^/' + fallback.source.slice('/:path('.length, -1) + '$');
+  assert.equal(matches.test('/api/private-data'), false);
   assert.ok(config.headers.some((entry) => entry.headers.some((header) => header.key === 'Cache-Control' && header.value === 'no-cache')));
   const immutableRules = config.headers.filter((entry) => entry.headers.some((header) => header.value.includes('immutable')));
   const matchesImmutable = (url) => immutableRules.some((entry) => new RegExp(`^${entry.source.replace(':file', '')}$`).test(url));

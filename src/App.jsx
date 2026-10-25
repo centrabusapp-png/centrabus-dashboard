@@ -49,6 +49,8 @@ import { cameraReadingsFeatureEnabled } from './camera/cameraReadings';
 import { AnimatedCameraGauge } from './camera/LiveCameraGauges';
 import { LIVE_GAUGE_PLACEHOLDERS } from './camera/liveCameraGaugeModel';
 import './VehicleConditionPage.css';
+import ConditionHistoryExport from './camera/ConditionHistoryExport';
+import { createConditionHistoryService } from './camera/conditionHistoryCsv';
 
 const ROUTE_DEVIATION_DEFAULT_M = 100;
 const SYSTEM_HEALTH_THRESHOLDS = {
@@ -67,7 +69,9 @@ const WIFI_STATUS_SERVICE = createWifiStatusService({
 const DEVICE_PRESENCE_SERVICE = createDevicePresenceService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
 const REMOTE_WIFI_SERVICE = createRemoteWifiService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
 const CAMERA_FRAME_SERVICE = createCameraFrameService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession(),
-  enabled: process.env.NODE_ENV !== 'production' && process.env.VITE_CAMERA_FRAMES_ENABLED === 'true' });
+  enabled: process.env.VITE_CAMERA_FRAMES_ENABLED === 'true' && (process.env.NODE_ENV !== 'production' || BACKEND_CONFIG.cloudCameraEnabled),
+  previewOnly: process.env.VITE_CAMERA_PREVIEW_ONLY === 'true' });
+const CONDITION_HISTORY_SERVICE = createConditionHistoryService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
 const CENTRABUS_LOCKED_LOGO_SRC = '/centrabus-locked-logo.png';
 const loadGpsHistoryExplorer = () => import('./records/GpsHistoryExplorer');
 const NOTIFICATION_PREFERENCES_KEY = 'centrabus.notificationPreferences';
@@ -2947,7 +2951,8 @@ function getVehicleConditionDisplayBus(bus) {
 }
 
 export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashboard', onNavigate,
-  cameraEnabled = cameraReadingsFeatureEnabled(), cameraService, cameraCalibration, frameService = CAMERA_FRAME_SERVICE }) {
+  cameraEnabled = cameraReadingsFeatureEnabled(), cameraService, cameraCalibration, frameService = CAMERA_FRAME_SERVICE,
+  historyService = CONDITION_HISTORY_SERVICE }) {
   const bus = getVehicleConditionDisplayBus(suppliedBus);
   const [refreshState, setRefreshState] = useState({ status: 'idle', message: '' });
 
@@ -2990,11 +2995,12 @@ export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashb
   if (pageContext === 'vehicle-condition') {
     return <section className={`condition-summary-compact ${borderTone}`} aria-label="Vehicle condition readings">
       <header className="condition-summary-toolbar">
-        <div><h2>Gauge readings</h2><p title="Needle positions from the camera. Physical accuracy has not been independently verified.">Camera estimates</p></div>
+        <div><h2>Gauge readings</h2></div>
         <div className="condition-page-actions">
           {hasConditionData && <StatusBadge value={overallCondition} />}
           <button type="button" onClick={() => onNavigate('live-camera')}><Camera size={14} />Live camera</button>
           <button type="button" onClick={() => onNavigate({ page: 'records', bus: bus.id, tab: 'condition-history' })}><FileClock size={14} />History</button>
+          <ConditionHistoryExport key={bus.id} bus={bus} service={historyService} />
         </div>
       </header>
       {frameService?.enabled ? <CameraFrameGaugePanel compact key={bus.id} busId={bus.id} service={frameService} />
@@ -3203,9 +3209,59 @@ export function MapViewportController({ selectedBus, visiblePoints, routePoints,
   const selectedBusRef = useRef(selectedBus);
   const visiblePointsRef = useRef(visiblePoints);
   const routePointsRef = useRef(routePoints);
+  const followStateRef = useRef(null);
   selectedBusRef.current = selectedBus;
   visiblePointsRef.current = visiblePoints;
   routePointsRef.current = routePoints;
+
+  const selectedCoordinates = getBusCoordinates(selectedBus);
+  const selectedBusId = selectedBus?.id || null;
+  const selectedPositionKey = selectedCoordinates ? `${selectedCoordinates.lat},${selectedCoordinates.lng}` : '';
+  const visiblePositionKey = visiblePoints
+    .filter((point) => validGpsPair(point?.lat, point?.lng))
+    .map((point) => `${Number(point.lat)},${Number(point.lng)}`).join('|');
+
+  // Selection means follow that bus on every fresh coordinate. Clearing the
+  // selection returns to fleet framing; when unselected, only refit if a bus
+  // has moved beyond the current viewport so one-Hz GPS does not cause jitter.
+  useEffect(() => {
+    const points = visiblePointsRef.current.filter((point) => validGpsPair(point?.lat, point?.lng));
+    const currentBus = selectedBusRef.current;
+    const coordinates = getBusCoordinates(currentBus);
+    const next = {
+      busId: currentBus?.id || null,
+      positionKey: coordinates ? `${coordinates.lat},${coordinates.lng}` : '',
+      visiblePositionKey,
+    };
+    const previous = followStateRef.current;
+    if (!previous) {
+      followStateRef.current = next;
+      return;
+    }
+
+    if (next.busId && coordinates
+      && (next.busId !== previous.busId || next.positionKey !== previous.positionKey)) {
+      const center = [coordinates.lat, coordinates.lng];
+      if (typeof map.panTo === 'function') map.panTo(center, { animate: true, duration: 0.45 });
+      else map.flyTo(center, 14, { animate: true, duration: 0.45 });
+    } else if (!next.busId && previous.busId) {
+      focusFleetMap(map, getFleetResetTarget(null, points, routePointsRef.current));
+    } else if (!next.busId && next.visiblePositionKey !== previous.visiblePositionKey) {
+      const bounds = typeof map.getBounds === 'function' ? map.getBounds() : null;
+      const allVisible = bounds && typeof bounds.contains === 'function'
+        && points.every((point) => bounds.contains([Number(point.lat), Number(point.lng)]));
+      if (!allVisible) focusFleetMap(map, getFleetResetTarget(null, points, routePointsRef.current));
+      else if (points.length > 1 && typeof map.panTo === 'function') {
+        const center = L.latLngBounds(points.map((point) => [Number(point.lat), Number(point.lng)])).getCenter();
+        const currentCenter = typeof map.getCenter === 'function' ? map.getCenter() : null;
+        const driftM = currentCenter && typeof map.distance === 'function' ? map.distance(currentCenter, center) : null;
+        const movedEnough = Number.isFinite(driftM) ? driftM > 25
+          : !currentCenter || Math.abs(currentCenter.lat - center.lat) > 0.0002 || Math.abs(currentCenter.lng - center.lng) > 0.0002;
+        if (movedEnough) map.panTo([center.lat, center.lng], { animate: true, duration: 0.45 });
+      }
+    }
+    followStateRef.current = next;
+  }, [selectedBusId, selectedPositionKey, visiblePositionKey, map]);
   
   useEffect(() => {
     const selectedCoordinates = getBusCoordinates(selectedBusRef.current);
@@ -3266,9 +3322,10 @@ export function MapViewportController({ selectedBus, visiblePoints, routePoints,
   return null;
 }
 
-export function FitFleetBounds({ buses }) {
+export function FitFleetBounds({ buses, selectedBus = null }) {
   const map = useMap();
   const hasInitializedViewport = useRef(false);
+  const selectedCoordinates = isMarkerEligible(selectedBus) ? getBusCoordinates(selectedBus) : null;
   const validPositions = buses
     .map(getBusCoordinates)
     .filter(Boolean)
@@ -3285,7 +3342,10 @@ export function FitFleetBounds({ buses }) {
     const frame = requestAnimationFrame(() => {
       if (!active || map._loaded === false) return;
       map.invalidateSize();
-      if (validPositions.length === 1) {
+      if (selectedCoordinates) {
+        map.setView([selectedCoordinates.lat, selectedCoordinates.lng], 14);
+        hasInitializedViewport.current = true;
+      } else if (validPositions.length === 1) {
         map.setView(validPositions[0], 13);
         hasInitializedViewport.current = true;
       } else if (validPositions.length > 1) {
@@ -3298,7 +3358,7 @@ export function FitFleetBounds({ buses }) {
     const cancel = () => { active = false; cancelAnimationFrame(frame); };
     map.on?.('unload', cancel);
     return () => { cancel(); map.off?.('unload', cancel); };
-  }, [map, positionedBusKey]);
+  }, [map, positionedBusKey, selectedCoordinates?.lat, selectedCoordinates?.lng]);
 
   return null;
 }
@@ -3991,7 +4051,7 @@ export function LeafletMapPanel({
             centerBusSignal={centerSignal} centerAllSignal={centerAllSignal}
             resetViewSignal={resetViewSignal} resizeSignal={resizeSignal}
           />
-          <FitFleetBounds buses={markerBuses} />
+          <FitFleetBounds buses={markerBuses} selectedBus={selectedBus} />
           <AnimatedRadiusCircle center={radiusCenter} radius={routeSafeRadiusM} />
           
           <ZoomAwareBusMarkers buses={markerBuses} selectedBusId={selectedBus?.id} onSelect={onSelect} nowMs={nowMs} pinSelectedBusSignal={pinSelectedBusSignal} knownBusIds={monitoredBuses.map((bus) => bus.id)} />
@@ -4774,7 +4834,7 @@ function BusFleetSelector({ buses, fleetStatus, selectedBusId, onSelectBus, comp
   );
 }
 
-export function VehicleConditionPage({ buses, fleetStatus, selectedBus, selectedBusId, onSelectBus, onNavigate, nowMs, frameService = CAMERA_FRAME_SERVICE }) {
+export function VehicleConditionPage({ buses, fleetStatus, selectedBus, selectedBusId, onSelectBus, onNavigate, nowMs, frameService = CAMERA_FRAME_SERVICE, historyService = CONDITION_HISTORY_SERVICE }) {
   const conditionBus = getVehicleConditionDisplayBus(selectedBus);
 
   return (
@@ -4785,7 +4845,7 @@ export function VehicleConditionPage({ buses, fleetStatus, selectedBus, selected
       </aside>
       <div className="condition-page-main">
         <BusDetailsPanel compact bus={selectedBus} onNavigate={onNavigate} nowMs={nowMs} />
-        <VehicleConditionSummary bus={conditionBus} pageContext="vehicle-condition" onNavigate={onNavigate} frameService={frameService} />
+        <VehicleConditionSummary bus={conditionBus} pageContext="vehicle-condition" onNavigate={onNavigate} frameService={frameService} historyService={historyService} />
       </div>
     </div>
   );
@@ -4917,7 +4977,7 @@ export function AuthorizedDashboard({ user }) {
   let pageContent;
   switch (activePage) {
     case 'map': pageContent = <LeafletMapPanel selectedBus={mapSelectedBus} selectedTrip={mapSelectedTrip} onSelect={(b) => setSelectedBusId(b.id)} monitoredBuses={mapBuses} routeSafeRadiusM={ROUTE_DEVIATION_DEFAULT_M} onCenterBus={() => {}} resizeSignal={`${selectedBusId}-${mapStatus}-${mapTripStatus}`} autoCenterKey={`${mapStatus}-${mapTripStatus}`} showDetails nowMs={gpsNowMs} />; break;
-    case 'live-camera': pageContent = <LiveCameraView authorized={Boolean(user?.id)} buses={busesWithGps} frameService={CAMERA_FRAME_SERVICE} />; break;
+    case 'live-camera': pageContent = <LiveCameraView authorized={Boolean(user?.id)} buses={busesWithGps} frameService={CAMERA_FRAME_SERVICE} historyService={CONDITION_HISTORY_SERVICE} />; break;
     case 'vehicle-condition': pageContent = <VehicleConditionPage buses={telemetryBuses} fleetStatus={busesStatus} selectedBus={selectedBus} selectedBusId={selectedBusId} onSelectBus={(b) => setSelectedBusId(b.id)} onNavigate={setActivePage} nowMs={gpsNowMs} />; break;
     case 'alerts': pageContent = <AlertsPage alerts={alerts} buses={telemetryBuses} onUpdateAlert={updateAlert} initialCategory={alertCategory} initialStatus={alertStatus} selectedAlertId={alertId} />; break;
     case 'records': pageContent = <LoadablePanel load={loadGpsHistoryExplorer} loadingLabel="Loading activity records…" buses={telemetryBuses} initialBusId={selectedTab === 'condition-history' ? selectedBusId || '' : ''} />; break;

@@ -3,6 +3,7 @@ import {
   fetchGpsHistoryCount,
   fetchGpsHistoryPage,
   formatGpsHistoryPeriod,
+  formatGpsHistoryTimestamp,
   getGpsHistoryBusLabel,
   getGpsHistoryPageNumbers,
   getGpsHistoryPageRange,
@@ -12,6 +13,13 @@ import {
   normalizeGpsHistoryRow,
   resolveGpsHistoryDateRange,
 } from './gpsHistory';
+
+test('record times include seconds in Philippine time without changing the stored timestamp', () => {
+  const capturedAt = '2026-10-25T00:27:05.000Z';
+  expect(formatGpsHistoryTimestamp(capturedAt)).toMatch(/8:27:05\s*AM/);
+  expect(formatGpsHistoryTimestamp(capturedAt, { seconds: false })).toMatch(/8:27\s*AM/);
+  expect(capturedAt).toBe('2026-10-25T00:27:05.000Z');
+});
 
 function createQueryResult({ data = [], count = 0, error = null } = {}) {
   const calls = [];

@@ -1,21 +1,8 @@
 # CentraBus dashboard
 
-## Camera display update
-
-The opt-in authenticated frame view now clears all six displayed readings and
-pauses browser camera reads with Preview OFF. Preview ON shows fresh analysis
-with original capture time and Fresh/Stale age. This display switch does not
-remotely stop the Pi camera process. Missing/stale readings are never zero.
-Capture freezes one matching analysis image and its six numeric/quality states;
-it never attaches old values to a newer image. Dial labels reuse existing
-calibration bands, not new physical/safety limits. Camera accuracy still needs
-same-capture physical verification.
-
-During explicitly enabled local development only, manual Capture writes a PNG
-to `captured-images` beside the frontend checkout, with loopback Host/Origin,
-native active-admin authorization and a fixed generated pathname. It is not an
-automatic recorder or cloud file writer. SQL and Pi enrollment/runtime changes
-remain separate. Camera/remote-Wi-Fi production flags stay disabled by default.
+For current-code GitHub preparation and future Vercel launches, read
+[`LAUNCHING.md`](LAUNCHING.md). `npm run ready:launch` verifies the current
+deployment configuration and production build without pushing or deploying.
 
 The active React/Vite dashboard uses native Supabase Auth and Supabase for
 application data and Realtime. It does not initialize Firebase or provide a
@@ -30,12 +17,6 @@ are arriving.
 
 ## Local development
 
-Use Node.js 22.x and run `npm ci --ignore-scripts` to install the locked
-dependencies. This repository contains only the active admin frontend, with
-its package files at the repository root. It does not contain the Express
-backend, Raspberry Pi software, database migrations, historical snapshots or
-local environment files.
-
 Use the frontend's local `.env` for the public Supabase URL and publishable
 key. Never put the backend Supabase secret key in this Vite project.
 
@@ -44,47 +25,6 @@ npm.cmd run dev
 npm.cmd test -- --watchAll=false
 npm.cmd run build
 ```
-
-The two camera cross-component checks in `src/App.test.js` use the sibling
-CentraBus backend test harness from the full development workspace. That
-backend is intentionally not uploaded here. Running the complete frontend
-suite requires that reviewed sibling checkout at `../backend`; this is a test
-dependency, not a frontend production-runtime dependency. The Vercel build
-does not run those integration tests or start the backend.
-
-## Vercel setup
-
-Import `centrabusapp-png/centrabus-dashboard` and leave **Root Directory** at
-the repository root (`.`), not `superbus`. `vercel.json` already selects Vite,
-`npm ci --ignore-scripts`, `npm run build:vercel`, and output directory `dist`.
-Use Node.js 22.x.
-
-Configure these values in the appropriate Vercel environment before building:
-
-| Variable | Required value |
-| --- | --- |
-| `VITE_SUPABASE_URL` | The approved public HTTPS Supabase origin |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | The project's public publishable/anon key, never a secret/service-role key |
-| `VITE_BACKEND_URL` | The approved, separately hosted backend's public HTTPS origin; localhost is not usable by remote visitors |
-| `VITE_WIFI_STATUS_ENABLED` | `false` |
-| `VITE_CAMERA_READINGS_ENABLED` | `false` |
-
-All `VITE_` values are public browser configuration. Never add a device secret,
-password, private key, access/refresh token or backend credential here. No
-production environment values are committed. Missing/unsafe configuration
-causes the deployment build guard to fail closed.
-
-Before accepting a live release, separately approve the deployed dashboard
-origin in backend CORS and configure the corresponding Supabase Auth site and
-recovery redirect URLs. Those production changes are not performed by this
-repository upload. Verify native active-admin login, logout/recovery, direct
-route refreshes, backend reachability, GPS freshness and Realtime on the actual
-deployment. A build pass is not a live integration pass.
-
-Vercel hosts this static frontend only. This upload does not deploy the
-Express backend or either Raspberry Pi, enable camera/Wi-Fi operations, enroll
-devices, modify GPS boot configuration or apply SQL. Real Wi-Fi mutation
-remains disabled pending a separately approved device integration.
 
 ## Faster startup and safe static caching
 
@@ -139,9 +79,8 @@ requests, map tiles and database service latency may still affect live loading.
 ## Legacy Firebase / recovery only
 
 Firebase browser SDK code has been removed from the active frontend. The
-full CentraBus development workspace retains historical Firebase rules, migration SQL,
+repository intentionally retains historical Firebase rules, migration SQL,
 snapshots, handoffs, and a saved recovery build for audit/rollback context.
-Those artifacts are excluded from this frontend-only repository. They are not
-imported by the Vite entrypoint and are not the
+Those artifacts are not imported by the Vite entrypoint and are not the
 current authentication or data path. Do not run historical migration or
 rollback SQL as part of normal dashboard startup.

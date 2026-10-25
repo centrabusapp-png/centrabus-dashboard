@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Download, MonitorPlay, Play, ShieldCheck, VideoOff } from 'lucide-react';
+import { Camera, Download, MonitorPlay, ShieldCheck, VideoOff } from 'lucide-react';
 import { cameraFeedConfigured, disposeLiveCameraSession, LIVE_CAMERA_DEVICES, pendingLiveCameraService, validLiveCameraSession } from './liveCameraService';
 import { cameraReadingsFeatureEnabled } from './cameraReadings';
 import { pendingCameraReadingsService } from './cameraReadingsService';
@@ -50,9 +50,7 @@ export function LiveCameraTile({ device, service = pendingLiveCameraService, tim
   useEffect(() => {
     setCapture({ status: 'idle', message: '' });
     setState({ status: configured ? 'ready' : 'unconfigured', cameraId: null, lastActivity: null });
-    const hidden = () => { if (document.hidden && (active.current || pending.current)) finish('stopped'); };
-    document.addEventListener('visibilitychange', hidden);
-    return () => { document.removeEventListener('visibilitychange', hidden); release(); };
+    return () => { release(); };
     // Each adapter/device owns only its own session; never reuse the other tile.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [service, device.deviceId, configured]);
@@ -115,6 +113,8 @@ export function LiveCameraTile({ device, service = pendingLiveCameraService, tim
         if (callback !== null) element.cancelVideoFrameCallback?.(callback);
         element.removeEventListener('timeupdate', progress);
         track.removeEventListener('ended', ended); track.removeEventListener('mute', muted);
+        // React may clear the ref before passive unmount cleanup runs.
+        if (element.srcObject === session.stream) element.srcObject = null;
       };
       setState({ status: 'connected', cameraId: session.cameraId, lastActivity: null });
     } catch {
@@ -123,7 +123,7 @@ export function LiveCameraTile({ device, service = pendingLiveCameraService, tim
       clearTimeout(timeout);
       controller.signal.removeEventListener('abort', cancel);
       if (pending.current === controller) pending.current = null;
-      // An adopted stream is released on Stop/navigation, not after open().
+      // An adopted stream is released on failure/navigation, not after open().
       if (!committed) controller.abort();
     }
   };
@@ -154,30 +154,29 @@ export function LiveCameraTile({ device, service = pendingLiveCameraService, tim
     }
   };
 
-  const previewOn = connected || state.status === 'connecting';
+  useEffect(() => {
+    if (configured) void connect();
+    // Open once for this device when its camera tile is mounted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configured, device.deviceId, service]);
+
   return <section aria-label={`${device.shortName} camera`} className="camera-preview-panel min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
       <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#8E1F2F]/10 text-[#8E1F2F]"><Camera size={20} aria-hidden="true" /></span><div><p className="camera-section-eyebrow">Live camera preview</p><h2 className="text-base font-extrabold text-slate-900">{device.name}</h2><p className="mt-0.5 text-xs text-slate-500">{device.deviceId} · Dashboard camera</p></div></div>
       <span role="status" className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-bold ${receiving ? 'bg-emerald-50 text-emerald-700' : status === 'failed' || status === 'offline' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}><span className={`h-1.5 w-1.5 rounded-full ${receiving ? 'bg-emerald-500' : 'bg-current opacity-50'}`} />{labels[status]}</span>
     </div>
     <div className="relative aspect-video w-full overflow-hidden bg-[#111827]">
-      <video ref={video} aria-label={`${device.shortName} live camera video`} autoPlay playsInline muted controls={connected}
+      <video ref={video} aria-label={`${device.shortName} live camera video`} autoPlay playsInline muted controls={false}
         controlsList="nodownload noremoteplayback" disablePictureInPicture preload="none"
         className={`h-full w-full object-contain ${connected ? '' : 'invisible'}`}
         onPause={() => { if (active.current) setState((current) => ({ ...current, status: 'paused' })); }}
         onWaiting={() => { if (active.current) setState((current) => ({ ...current, status: 'buffering' })); }}
         onError={() => { if (active.current) finish('failed'); }} onEnded={() => { if (active.current) finish('offline'); }} />
-      {!connected && <div className="absolute inset-0 flex flex-col items-center justify-center p-5 text-center"><span className="mb-4 grid h-16 w-16 place-items-center rounded-2xl border border-white/10 bg-white/5 text-slate-400"><VideoOff size={30} aria-hidden="true" /></span><p className="text-sm font-bold text-slate-200">{status === 'connecting' ? 'Connecting to camera…' : 'No video feed'}</p><p className="mt-2 max-w-sm text-xs leading-relaxed text-slate-400">{status === 'unconfigured' ? `A secure video source for ${device.shortName} has not been connected.` : status === 'failed' ? 'The feed could not be opened. Check camera access and the streaming connection.' : 'Start viewing when the authenticated camera source is available.'}</p></div>}
+      {!connected && <div className="absolute inset-0 flex flex-col items-center justify-center p-5 text-center"><span className="mb-4 grid h-16 w-16 place-items-center rounded-2xl border border-white/10 bg-white/5 text-slate-400"><VideoOff size={30} aria-hidden="true" /></span><p className="text-sm font-bold text-slate-200">{status === 'connecting' ? 'Connecting to camera…' : 'No video feed'}</p><p className="mt-2 max-w-sm text-xs leading-relaxed text-slate-400">{status === 'unconfigured' ? `A secure video source for ${device.shortName} has not been connected.` : status === 'failed' ? 'The feed could not be opened. Check camera access and the streaming connection.' : 'Camera viewing starts automatically when the authenticated source is available.'}</p></div>}
     </div>
     <div className="space-y-3 p-4 sm:p-5">
       <dl className="grid min-w-0 grid-cols-2 gap-3 text-xs"><div className="min-w-0"><dt className="font-bold text-slate-500">Camera identity</dt><dd className="mt-1 break-all font-semibold text-slate-800">{state.cameraId || 'Not verified'}</dd></div><div className="min-w-0"><dt className="font-bold text-slate-500">Last video activity</dt><dd className="mt-1 font-semibold text-slate-800">{state.lastActivity == null ? 'No frames received' : `${Math.max(0, Math.floor((now - state.lastActivity) / 1000))}s ago`}</dd></div></dl>
-      <div className="camera-preview-controls"><p className="text-xs font-semibold text-slate-600">{previewOn ? 'Preview enabled' : 'Preview is off'}</p>
-        <button type="button" role="switch" aria-checked={previewOn} aria-label={`${device.shortName} camera preview`}
-          onClick={() => previewOn ? finish('stopped') : connect()} disabled={!configured} className="camera-preview-switch">
-          {previewOn ? <VideoOff size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
-          {state.status === 'connecting' ? 'Connecting…' : previewOn ? 'Preview on' : 'Preview off'}
-          <span className="camera-preview-switch-track" aria-hidden="true"><span className="camera-preview-switch-thumb" /></span>
-        </button></div>
+      <p role="status" className="text-xs font-semibold text-slate-600">Camera viewing starts automatically and remains active while this page is open.</p>
       <div className="camera-evidence-controls">
         <button type="button" className="camera-evidence-button" onClick={saveEvidence}
           disabled={!captureReady || capture.status === 'busy'} aria-label={`Capture ${device.shortName} camera and gauges`}
@@ -218,9 +217,9 @@ function LiveCameraWorkspace({ service, buses, gaugeService, calibration, gauges
 }
 
 export default function LiveCameraView({ authorized = false, service = pendingLiveCameraService, buses = [],
-  gaugeService = pendingCameraReadingsService, calibration = null, gaugesEnabled = cameraReadingsFeatureEnabled(), clock = Date.now, frameService }) {
+  gaugeService = pendingCameraReadingsService, calibration = null, gaugesEnabled = cameraReadingsFeatureEnabled(), clock = Date.now, frameService, historyService }) {
   if (!authorized) return <section aria-label="Live Camera View" className="rounded-[24px] border bg-white p-5"><p>Active administrator access is required to view cameras.</p></section>;
-  if (frameService?.enabled === true) return <SynchronizedCameraView service={frameService} clock={clock} />;
+  if (frameService?.enabled === true) return <SynchronizedCameraView service={frameService} clock={clock} buses={buses} historyService={historyService} />;
   return <LiveCameraWorkspace service={service} buses={buses} gaugeService={gaugeService}
     calibration={calibration} gaugesEnabled={gaugesEnabled} clock={clock} />;
 }

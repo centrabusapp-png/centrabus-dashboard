@@ -1,0 +1,9 @@
+#!/bin/sh
+repo=$(git rev-parse --show-toplevel) || exit 1
+node_bin=$(git config --local --get centrabus.node)
+if [ -z "$node_bin" ]; then node_bin=node; fi
+if [ ! -f "$repo/scripts/pre-push.cjs" ]; then
+  echo "Dashboard launch gate missing. Prepare the current frontend before pushing." >&2
+  exit 1
+fi
+exec "$node_bin" "$repo/scripts/pre-push.cjs" "$@"

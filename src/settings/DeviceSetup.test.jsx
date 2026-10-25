@@ -6,7 +6,7 @@ global.TextEncoder = TextEncoder;
 const config = { configured: true, origin: 'http://localhost:5000', healthUrl: 'http://localhost:5000/health' };
 const choose = (name) => fireEvent.click(screen.getByRole('tab', { name }));
 
-test('graphical device selection shares one selected identity with Wi-Fi, not discovered devices', async () => {
+test('graphical device selection uses Pi2 laptop Wi-Fi controls without pretending an agent is installed', async () => {
   const wifiService = { getState: jest.fn(async (deviceId) => pendingWifiState(deviceId)) };
   render(<DeviceSetup authorized wifiService={wifiService} />);
   expect(screen.getByRole('heading', { name: 'Device Setup' })).toBeInTheDocument();
@@ -15,10 +15,12 @@ test('graphical device selection shares one selected identity with Wi-Fi, not di
   expect(screen.queryByLabelText('GPS device')).not.toBeInTheDocument();
   await waitFor(() => expect(wifiService.getState).toHaveBeenCalledWith('GPS-001', expect.any(Object)));
   fireEvent.click(screen.getByRole('button', { name: 'Configure Pi2 GPS-002' }));
-  await waitFor(() => expect(wifiService.getState).toHaveBeenLastCalledWith('GPS-002', expect.any(Object)));
+  expect(wifiService.getState).not.toHaveBeenCalledWith('GPS-002', expect.any(Object));
   expect(screen.getByRole('button', { name: 'Configure Pi2 GPS-002' })).toHaveAttribute('aria-pressed', 'true');
-  expect(screen.getByText(/Scanning must run on GPS-002/)).toBeInTheDocument();
-  await screen.findByRole('button', { name: 'Refresh status' });
+  expect(screen.getByRole('region', { name: 'Pi2 laptop Wi-Fi settings' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Open Wi-Fi settings' })).toBeInTheDocument();
+  expect(screen.getByText('05 - Pi2 Wi-Fi Settings.cmd')).toBeInTheDocument();
+  expect(screen.queryByText('GPS-002 setup connection')).not.toBeInTheDocument();
 });
 
 test('no admin means no status request, backend check or device controls', () => {
@@ -94,6 +96,7 @@ test('switching devices or leaving network tab erases draft credentials', async 
   fireEvent.change(password, { target: { value: 'synthetic-only-password' } });
   fireEvent.click(screen.getByRole('button', { name: 'Configure Pi2 GPS-002' }));
   expect(password.value).toBe(''); expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Configure Pi1 GPS-001' }));
   fireEvent.click(screen.getByRole('button', { name: 'Add Wi-Fi Network' }));
   password = screen.getByLabelText('Wi-Fi password');
   fireEvent.change(password, { target: { value: 'synthetic-only-password' } });

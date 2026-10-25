@@ -8,19 +8,24 @@ const fixture = () => ({ device_id: 'GPS-002', camera_id: 'test-camera', bus_id:
     unit: ['frontAir', 'rearAir'].includes(gauge_key) ? 'kg/cm2' : '%' })) });
 const exportFrame = (frame, extra = {}) => createCameraReadingsCsv({ frame, deviceId: 'GPS-002', state: 'live', now: NOW, ...extra });
 
-test('CSV has the same six source readings in physical order, original angles/time, no fabricated rejected values', () => {
+test('capture CSV has one labelled row with all six source values and blanks for missing readings', () => {
   const frame = fixture(); const original = JSON.stringify(frame); const result = exportFrame(frame);
   const rows = result.csv.trim().split('\r\n');
   expect(result.blob.type).toBe('text/csv;charset=utf-8');
   expect(result.filename).toMatch(/^centrabus-GPS-002-readings-.*\.csv$/);
-  expect(rows).toHaveLength(7);
-  expect(rows[0]).toContain('"captured_at_utc","exported_at_utc"');
-  expect(rows.slice(1).map(row => row.split(',')[6])).toEqual(['"Fuel"','"Coolant"','"Front air pressure"','"Rear air pressure"','"Battery"','"Oil"']);
-  expect(rows[1]).toContain('"103.24"');
-  expect(rows[1]).toContain(`"${frame.captured_at}","${new Date(NOW).toISOString()}"`);
-  expect(rows[2]).toContain('"detected","0","%"'); // True detected zero is not missing data.
-  expect(rows[4]).toContain('"uncertain","","kg/cm2","","","unverified"');
+  expect(rows).toHaveLength(2);
+  expect(rows[0]).toContain('"Fuel (%)","Coolant (%)","Front air pressure (kg/cm²)","Rear air pressure (kg/cm²)","Battery (%)","Oil (%)"');
+  expect(rows[1]).toContain('"2026-10-22","11:59:59.000"');
+  expect(rows[1]).toContain('"34.12","0","34.12","","34.12","34.12","5"');
+  expect(result.csv).not.toMatch(/Uncertain|Not verified|Physical accuracy/);
   expect(JSON.stringify(frame)).toBe(original);
+});
+test('capture CSV can include the exact angles and original source time as optional technical fields', () => {
+  const frame = fixture(), result = exportFrame(frame, { includeDetails: true });
+  expect(result.csv).toContain('"Fuel needle angle (deg)"');
+  expect(result.csv).toContain('"103.24"');
+  expect(result.csv).toContain(`"${frame.captured_at}","","${new Date(NOW).toISOString()}"`);
+  expect(result.csv).toContain('"source:5"');
 });
 test.each([-3000, 16000, NaN])('rejects unsafe capture age %s', (age) => {
   const frame = fixture(); frame.captured_at = Number.isNaN(age) ? 'invalid' : new Date(NOW - age).toISOString();

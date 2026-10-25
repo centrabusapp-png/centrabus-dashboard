@@ -50,7 +50,7 @@ export function AnimatedCameraGauge({ gauge, calibration, compact = false }) {
     <p className="camera-gauge-angle" title="Original detected needle angle from this camera capture; not calculated from the displayed percentage.">
       Angle: {angle !== null ? `${angle.toFixed(2)}°` : '—'}</p>
     <div className={`camera-gauge-quality ${available && !stale ? 'has-reading' : ''}`}>
-      <span className="camera-quality-dot" />{stale ? 'Last known · stale' : gauge.unverified ? gauge.quality === 'detected' ? compact ? 'Detected · estimate' : 'Detected · camera estimate' : gauge.quality === 'uncertain' ? 'Uncertain · no value' : 'Not detected' : available ? 'Validated reading' : 'Not yet verified'}
+      <span className="camera-quality-dot" />{stale ? 'Last known · stale' : gauge.unverified ? gauge.quality === 'detected' && available ? 'Detected' : 'Reading unavailable' : available ? 'Reading available' : 'Reading unavailable'}
     </div>
     <p className="camera-gauge-capture">{gauge.capturedAt
       ? <><time dateTime={gauge.capturedAt} title={gauge.capturedAt}>{new Date(gauge.capturedAt).toLocaleTimeString()}</time> · {Math.floor(gauge.ageMs / 1000)}s ago</>
@@ -58,7 +58,7 @@ export function AnimatedCameraGauge({ gauge, calibration, compact = false }) {
     {available && Number.isFinite(gauge.confidence) && <p className="camera-gauge-confidence">Confidence {Math.round(gauge.confidence * 100)}%</p>}
     {gauge.unverified && (!compact || dialStatus) && <p className="camera-gauge-confidence"
       title={Number.isFinite(gauge.angleDegrees)?`Detected needle angle: ${gauge.angleDegrees.toFixed(3)}°. Dial position is not a validated physical measurement.`:undefined}>
-      {dialStatus ? compact ? dialStatus : `${dialStatus} · dial estimate` : gauge.quality === 'uncertain' ? 'Uncertain · check camera view' : 'Waiting for detection'}</p>}
+      {dialStatus || 'Check camera view'}</p>}
   </article>;
 }
 

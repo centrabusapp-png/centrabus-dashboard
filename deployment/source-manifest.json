@@ -1,0 +1,776 @@
+{
+  "schema": "centrabus-dashboard-source-v1",
+  "digest": "d25914679ebe5e96f9fa2aa910f9d3d8f1d6b969439c36a8f466a562a116b6f4",
+  "files": [
+    {
+      "path": ".env.example",
+      "bytes": 538,
+      "sha256": "104a1b1dc2612253ae9624848b6596b5b37d7fbc3420d394627d5de3d1290076"
+    },
+    {
+      "path": ".githooks/pre-push",
+      "bytes": 355,
+      "sha256": "5ab328e23bb3bbeb38faf28f9f747cd24fe53d9802f6420265ab924badd451b1"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 1195,
+      "sha256": "01ef689bf64f6dce0e4966d5c0132eca191198cdd35e566450d3ce01a42e7e03"
+    },
+    {
+      "path": ".vercelignore",
+      "bytes": 280,
+      "sha256": "8005a6ab01c48b1d648d499fa66a4911f03962775cf7f61b32bf489583bfc803"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 892,
+      "sha256": "717263de9157770c9a19191d4ca07764ac0cada185417d648203d6b6eaf3a424"
+    },
+    {
+      "path": "BRAND_LOCK.md",
+      "bytes": 493,
+      "sha256": "d10197b1d9fbb046ec5cabd5b09ddb6183e7cfe43407241836ea50cc138b2095"
+    },
+    {
+      "path": "cameraFrameProxy.mjs",
+      "bytes": 1136,
+      "sha256": "246cf944ec32550a275cc5ea7cd7171211a56a32becd29b092c6054f577e4916"
+    },
+    {
+      "path": "cameraFrameProxy.test.mjs",
+      "bytes": 2620,
+      "sha256": "70bc9d18af68d41f278abc0742c8a56e69f5360a6f2c89b6de3b1111d7bf1c03"
+    },
+    {
+      "path": "deployment/launch-profile.json",
+      "bytes": 841,
+      "sha256": "b4ab15cad79bef86dfdc494c79b661d899b1aec84e8d0753e87e97d8af9d8569"
+    },
+    {
+      "path": "index.html",
+      "bytes": 759,
+      "sha256": "1c5c012e017fdc42e0b4a3433f301e2e093841e0f2a12825ac53615fd4886513"
+    },
+    {
+      "path": "LAUNCHING.md",
+      "bytes": 6023,
+      "sha256": "2bd35540f58e3b41eaa2d4fb09319571fed047d0bb32f5115b43f998f79d1e82"
+    },
+    {
+      "path": "localCameraCapture.mjs",
+      "bytes": 5171,
+      "sha256": "48ce9dc9f3f20619e414c6e03794c2311af8b647c37392ef2a1cbed9d1fca7ff"
+    },
+    {
+      "path": "localCameraCapture.test.mjs",
+      "bytes": 4468,
+      "sha256": "76baefdf381616ac74ebd9223323010dcab3c83d7ebae28ba777e3d7844d4113"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 684898,
+      "sha256": "659b9794f303d790d2b8c722175479a55a378ec8376523e567e46fe7c63af721"
+    },
+    {
+      "path": "package.json",
+      "bytes": 1441,
+      "sha256": "9fe9d103e593f97e214848ce785011253ab2a87e528b7874ea89bb4f6ed28845"
+    },
+    {
+      "path": "postcss.config.cjs",
+      "bytes": 83,
+      "sha256": "fa650b380adfabb151a0b352f7135e107e6352345f899060f1c5c231228f94bf"
+    },
+    {
+      "path": "public/centrabus-app-icon.png",
+      "bytes": 294367,
+      "sha256": "63340344c5bedb6da3405a0e9373f8092478f33771c6a48651813fe9e420397b"
+    },
+    {
+      "path": "public/centrabus-icon-64.png",
+      "bytes": 5897,
+      "sha256": "e58db97f4f0dd741d54db16a7bc499545311317c930e4b48685e5b00d6c85b2b"
+    },
+    {
+      "path": "public/centrabus-locked-logo.png",
+      "bytes": 753673,
+      "sha256": "655d2f6812e1c453cee2d801b352ee8d203b2495c52f48e86e773f724b5dce30"
+    },
+    {
+      "path": "public/centrabus-login-logo.png",
+      "bytes": 94177,
+      "sha256": "01711ec5a1f1cebe85d22ba027fc45632a64f97aef7cee3d8b23353566d313cc"
+    },
+    {
+      "path": "public/centrabus-logo.png",
+      "bytes": 764115,
+      "sha256": "3641a9192c4c0e102df6bf46790a6a5ffd37ce3712bfec4fb8aa526f9564eae9"
+    },
+    {
+      "path": "public/centrabus-source-logo.png",
+      "bytes": 954049,
+      "sha256": "c45f204a3e62755a8aacb879dceeb4c0f2d6732d3e909bc67e40c9a97fdab6ac"
+    },
+    {
+      "path": "public/favicon.ico",
+      "bytes": 3870,
+      "sha256": "3d10f7da6c603178340081668c4ac5b3ae9743ca9a262ab0fcd312fbb9f48bdd"
+    },
+    {
+      "path": "public/index.html",
+      "bytes": 1765,
+      "sha256": "d388564ea2d960a79f17637eb9ebd1a45c0a9355eaa342d459c9473c4a0e098f"
+    },
+    {
+      "path": "public/logo192.png",
+      "bytes": 45744,
+      "sha256": "b78ad5f2e1a583c1ac7e5d92fe0c64cd218304dad17b43fdb1ff389aadff0aba"
+    },
+    {
+      "path": "public/logo512.png",
+      "bytes": 283066,
+      "sha256": "758e08569496d50835bf8c4f9754ca157270dcf97d946dbec42dd7de65bbeb9b"
+    },
+    {
+      "path": "public/manifest.json",
+      "bytes": 503,
+      "sha256": "a257c478b79aa384eb64592020eba3af7e39eb3027a83c9dfb6af4f5021963eb"
+    },
+    {
+      "path": "public/robots.txt",
+      "bytes": 67,
+      "sha256": "90d24bc3bf698ac1e173739502298ccca72adf1f564fab05f484b8c48d1cadd2"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4264,
+      "sha256": "cddcd1feeefce53f31203cb572d07aa4c5a69c54e4d04b16e51da42b183f9ad0"
+    },
+    {
+      "path": "remoteWifiProxy.mjs",
+      "bytes": 1702,
+      "sha256": "617305b7a6a26757fb67bd90ac4d1c3dbd67c80c8db2d50cda9ef19fe89961c6"
+    },
+    {
+      "path": "remoteWifiProxy.test.mjs",
+      "bytes": 2392,
+      "sha256": "439cb32ad647dc5f0dc8baf184e2714af1c9956ed4242dc5021a3aa0e4e23671"
+    },
+    {
+      "path": "scripts/check-deployment-config.cjs",
+      "bytes": 3635,
+      "sha256": "be98cdf505cd4a9728f2a3d67cc3b3e07a6be0954923542af0ee172ecc3c0503"
+    },
+    {
+      "path": "scripts/check-deployment-config.test.cjs",
+      "bytes": 3841,
+      "sha256": "d32b196632a117eadc870a7c9194d4863a569f553e345fa089138de2b27f8be8"
+    },
+    {
+      "path": "scripts/check-release.cjs",
+      "bytes": 502,
+      "sha256": "b2d9cc67039cf49453427f022a920ea9e6b704017119ba72ef6842c41ed0abba"
+    },
+    {
+      "path": "scripts/cloud-camera.test.cjs",
+      "bytes": 890,
+      "sha256": "7495d687c06f6f5f0b1eab8bea61975ec7d233b09d4bf03753847d406d94c1a2"
+    },
+    {
+      "path": "scripts/hosted-release.test.cjs",
+      "bytes": 1685,
+      "sha256": "710a91028ab4d4c38a13f6e0032695df00e44a346672d559709adc0648211816"
+    },
+    {
+      "path": "scripts/pre-push.cjs",
+      "bytes": 2065,
+      "sha256": "e4baa4d1f7d33a21d3094b9783102841082790d7f05eb4519d150b25eead0b8a"
+    },
+    {
+      "path": "scripts/pre-push.test.cjs",
+      "bytes": 3417,
+      "sha256": "420bbbb1bdb475fe5b0817e05dce7221ab22f18bbbf08141d43664601bb970a8"
+    },
+    {
+      "path": "scripts/ready-launch.cjs",
+      "bytes": 3689,
+      "sha256": "5b5a5c7affc8c0c8c91d50b79874c0d122c346b00748d93c520b70b73069ede4"
+    },
+    {
+      "path": "scripts/release-files.cjs",
+      "bytes": 6986,
+      "sha256": "eb165e0fa5239ad94fcad4f7ce4d722e765f46f34ad9eb2d5d138b8da93fb6c9"
+    },
+    {
+      "path": "scripts/release-files.test.cjs",
+      "bytes": 3593,
+      "sha256": "ec9bc0b6d79e806b898038405dc0fc73bd21d80e0e65437660865080017ef066"
+    },
+    {
+      "path": "src/App.jsx",
+      "bytes": 265711,
+      "sha256": "fdbb3fb2af1a2b7b1c53da01b61f54011f1de0dc83fd3e9c50d9b66b123b2a6d"
+    },
+    {
+      "path": "src/App.test.js",
+      "bytes": 163549,
+      "sha256": "3b7d9f59f7aa9506e30970c73617f1d772df0f2c7248c4bfc37941e7f248b505"
+    },
+    {
+      "path": "src/assetCachePolicy.js",
+      "bytes": 634,
+      "sha256": "cc33bef77b82135881d51b8ae51245ac4ae59aafc172938c76aa602e88ccd056"
+    },
+    {
+      "path": "src/assetCachePolicy.test.js",
+      "bytes": 1616,
+      "sha256": "721691943965eb39f93a77ecc0140b370559104d48e8c07a0f08212e993f18ce"
+    },
+    {
+      "path": "src/auth/LoginPage.jsx",
+      "bytes": 14596,
+      "sha256": "a1ca587c713a3efb1cc11520c4eb9e4145bb43f01c1869cc2a9a6f2bc7ab442c"
+    },
+    {
+      "path": "src/auth/LoginPage.test.jsx",
+      "bytes": 1113,
+      "sha256": "beaaa157dc5506fd030d7e4df9224c8605759161a77d288cca5b5cffce48a12f"
+    },
+    {
+      "path": "src/auth/supabaseNativeAuth.js",
+      "bytes": 3855,
+      "sha256": "2859cb8b81392790f63494d44ae122058b500d814f21e6cb9d20693a99f96d74"
+    },
+    {
+      "path": "src/auth/supabaseNativeAuth.test.js",
+      "bytes": 7464,
+      "sha256": "7e6f6779078c46b90b999315e9803290825d0e8ecf612a2e82b9ae26293adc75"
+    },
+    {
+      "path": "src/auth/SupabaseNativeAuthGate.jsx",
+      "bytes": 10931,
+      "sha256": "093c8c9130a11344db872f441580e1b9ab6202ad3806d8e6d545413d7c9e1ab8"
+    },
+    {
+      "path": "src/auth/SupabaseNativeAuthGate.test.js",
+      "bytes": 11971,
+      "sha256": "21b16f6e5a9c8e31edda7e3b3b809b76b9c90567c85b3db0bd988566846d0b88"
+    },
+    {
+      "path": "src/AuthGate.jsx",
+      "bytes": 126,
+      "sha256": "c5ead843f5170373ca1e339b2d197c9c602f09ea3f82c5d4df15a7cd47d407d4"
+    },
+    {
+      "path": "src/camera/cameraCsvFormat.js",
+      "bytes": 3014,
+      "sha256": "aa7e91eea1136cbfd7366e7b3bec765ac635eeb1292bee931bdc3a5d7902d15b"
+    },
+    {
+      "path": "src/camera/cameraCsvFormat.test.js",
+      "bytes": 3689,
+      "sha256": "076486a23cf60b516d67a7447b954b0ca849acc44afe9b93d692aa3fee55652e"
+    },
+    {
+      "path": "src/camera/cameraDialGeometry.js",
+      "bytes": 1114,
+      "sha256": "defedfc49b0eacb19b33002e135160d0254616552867b13bc78e557115257310"
+    },
+    {
+      "path": "src/camera/cameraDialGeometry.test.js",
+      "bytes": 1190,
+      "sha256": "84c4bd2f23edec184db0d1d257841a8e2047d5847741b5b04a09c68b8e67a361"
+    },
+    {
+      "path": "src/camera/cameraEvidence.js",
+      "bytes": 9081,
+      "sha256": "836a6624f6ce189896609adfabee9d8fd26db43fce168493be3e106de2537cf3"
+    },
+    {
+      "path": "src/camera/cameraEvidence.test.js",
+      "bytes": 6197,
+      "sha256": "6fcefcfd71759bb5adb9e3518ef0cbf215fdbf6a6dcaa590da28cb2cfd21540b"
+    },
+    {
+      "path": "src/camera/CameraEvidenceCapture.test.jsx",
+      "bytes": 7682,
+      "sha256": "9a8a59db3438b46d610b8ff1ff507d8d4e8d688c88e7aee6b34d473b3d48149a"
+    },
+    {
+      "path": "src/camera/CameraFrameGaugePanel.jsx",
+      "bytes": 3961,
+      "sha256": "259e3b768b6c7967f373ecf80ab077e264864e8e7164dc3813f7b89ad2f262b5"
+    },
+    {
+      "path": "src/camera/CameraFrameGaugePanel.test.jsx",
+      "bytes": 4567,
+      "sha256": "201e0985a7462d29701cb5669de33cb8a84d4798a47098ec8c99a9aacd8b98db"
+    },
+    {
+      "path": "src/camera/cameraFrameService.js",
+      "bytes": 10614,
+      "sha256": "a78197e0056193faca2f2b331ebab593c79db29eb99649f03d3c1dd47f9e4d9e"
+    },
+    {
+      "path": "src/camera/cameraFrameService.test.js",
+      "bytes": 10425,
+      "sha256": "ba6aa10a252d93315abeb23e2370c1977bde775cbc87645c4fee35c4ced350eb"
+    },
+    {
+      "path": "src/camera/cameraGaugeEvidence.js",
+      "bytes": 5466,
+      "sha256": "fe75d3b92ae46337809e19d6efff6c819db929886e382886a62e6e5bfb760ac5"
+    },
+    {
+      "path": "src/camera/cameraGaugeEvidence.test.js",
+      "bytes": 6939,
+      "sha256": "7b2c0b31f81f627c3c4a988b9e6d1d8cc4c7d5d648d88f50602bd6e48ac116bd"
+    },
+    {
+      "path": "src/camera/CameraGaugePanel.jsx",
+      "bytes": 6587,
+      "sha256": "f61095637619af73fae379bf134336f670ba9c898a6fc3d80c3b64c848022a0c"
+    },
+    {
+      "path": "src/camera/CameraGaugePanel.test.jsx",
+      "bytes": 8194,
+      "sha256": "bb538babb2592cab2d321febb99a6071e7ab14452cc2f6cd228befed5f202707"
+    },
+    {
+      "path": "src/camera/cameraMetrics.js",
+      "bytes": 1394,
+      "sha256": "9ccba85325582a11c1998cdb64b1f2b88ba4a06b45bafb49e11f1a2d984572fa"
+    },
+    {
+      "path": "src/camera/cameraMetrics.test.js",
+      "bytes": 1098,
+      "sha256": "73a6a67156b25303bb44fd3beacb6517d12f0e5db0c1293f888cdf096c8f7004"
+    },
+    {
+      "path": "src/camera/cameraReadings.js",
+      "bytes": 6796,
+      "sha256": "250f870d61d4145b0faa953a2ca2abff2d790eb05180396f4d7f1d744fe19d92"
+    },
+    {
+      "path": "src/camera/cameraReadings.test.js",
+      "bytes": 8111,
+      "sha256": "6b6406354e4854738e1ea4ee7ebd216ed3abe8c91076e8da8088af8c04751796"
+    },
+    {
+      "path": "src/camera/cameraReadingsCsv.js",
+      "bytes": 2223,
+      "sha256": "c6621f90e2089ffdd933c939cc736b54b77ca6ed9b43b4a9eace5d8e2cefc6b2"
+    },
+    {
+      "path": "src/camera/cameraReadingsCsv.test.js",
+      "bytes": 3293,
+      "sha256": "744de437927a594ac657458cd1862a2cab9afd66ab016cfe18da06785285efcf"
+    },
+    {
+      "path": "src/camera/cameraReadingsService.js",
+      "bytes": 1732,
+      "sha256": "78f66849a045e9a2214d53426b2e84161f864b9673cd0662c49f0f0461cf954a"
+    },
+    {
+      "path": "src/camera/CaptureFrameSnapshot.jsx",
+      "bytes": 2507,
+      "sha256": "74d12e064d7758a7ad6600772a356d206507d359e26e3ce4eef9a66edaf57526"
+    },
+    {
+      "path": "src/camera/CaptureFrameSnapshot.test.jsx",
+      "bytes": 3256,
+      "sha256": "907df22c6ca076be880d94bbe818988bce7192e500a2c8d370e104fdc782c37f"
+    },
+    {
+      "path": "src/camera/cloudTransport.test.js",
+      "bytes": 1752,
+      "sha256": "f0cd30d1e58a606497e0ee148554693223efbc1ad4016a8584225daceab8f9ae"
+    },
+    {
+      "path": "src/camera/conditionHistoryCsv.js",
+      "bytes": 10115,
+      "sha256": "0ec957640ff60f540ff79ebf5d247066df6551d011c84cab43d49ebafaa61f51"
+    },
+    {
+      "path": "src/camera/conditionHistoryCsv.test.js",
+      "bytes": 8605,
+      "sha256": "bf1262ea0bff23efa72e89766cbb0af211b4b2f9d1906be5427313ad98de5db5"
+    },
+    {
+      "path": "src/camera/ConditionHistoryExport.jsx",
+      "bytes": 5776,
+      "sha256": "e23cacd14cd44699a805dc75eb8e27469cbf04737198b9ca3c76eac8623af82b"
+    },
+    {
+      "path": "src/camera/ConditionHistoryExport.test.jsx",
+      "bytes": 5709,
+      "sha256": "68cc383d7c2f0b7a5e64c40f4869518ac0ee45784a60d9b0c2a9ad6788905b04"
+    },
+    {
+      "path": "src/camera/FastLivePreview.jsx",
+      "bytes": 6017,
+      "sha256": "476a05ac164517672282e07c08b2fb48bd27d221e74d2d7cdf368e4d77a29f99"
+    },
+    {
+      "path": "src/camera/FastLivePreview.test.jsx",
+      "bytes": 6819,
+      "sha256": "2ad91250e2f3ffd88eb2876680ac1827a2bfcd4939e5a3422e5907eb3fa092df"
+    },
+    {
+      "path": "src/camera/liveCameraGaugeModel.js",
+      "bytes": 3282,
+      "sha256": "65093ef207b41f6f642add0c8e61d4a518e7aa5d5dd0c0b9b6570444d7c5adad"
+    },
+    {
+      "path": "src/camera/liveCameraGaugeModel.test.js",
+      "bytes": 2667,
+      "sha256": "34865def6f945ebcaad5d9e9e2f8aeccaf95a55be0572251b6e11c8187568e2a"
+    },
+    {
+      "path": "src/camera/LiveCameraGauges.jsx",
+      "bytes": 7414,
+      "sha256": "cd64ea9b8dc6e677ff9d8b5da58d31a47bec12e70288903f1242f414e1bd1f5e"
+    },
+    {
+      "path": "src/camera/LiveCameraGauges.test.jsx",
+      "bytes": 11800,
+      "sha256": "f20e942847802ea0b21ae11a20a1b83995d586b129ee9a9597963efe5d506fb8"
+    },
+    {
+      "path": "src/camera/liveCameraNavigation.test.js",
+      "bytes": 1687,
+      "sha256": "b96145b75e1a180ce2061b7db8c9cb49002dfbd332fb85446e7a5b286e5c38f6"
+    },
+    {
+      "path": "src/camera/liveCameraService.js",
+      "bytes": 1987,
+      "sha256": "577051fd2cafe091e111495fcdd3847db8879e8f9d50e409008de1422ea9d919"
+    },
+    {
+      "path": "src/camera/liveCameraService.test.js",
+      "bytes": 2687,
+      "sha256": "a8813d5d122a9c59a4fcc8cb2cddc0cc9c73632092cdae015155b7e76bdb3076"
+    },
+    {
+      "path": "src/camera/LiveCameraView.css",
+      "bytes": 11158,
+      "sha256": "692f9fe1c4055b09a6481499d71870fa49c43744ce40d15fb0218cacb631a7e6"
+    },
+    {
+      "path": "src/camera/LiveCameraView.jsx",
+      "bytes": 15996,
+      "sha256": "8422cc387a112293e9a10c83b54d13f4fee3dabcf02efd7125efcff5b0e4946c"
+    },
+    {
+      "path": "src/camera/LiveCameraView.test.jsx",
+      "bytes": 11848,
+      "sha256": "5cdae5736d2fe067c1f36270a17c9ba8262d80d425824e78d89441459abcebe9"
+    },
+    {
+      "path": "src/camera/SynchronizedCameraView.jsx",
+      "bytes": 16641,
+      "sha256": "3f3db835aefb4d2060462f7a12cd9bc7e9b02f72d51fabe04906c6e3168349a3"
+    },
+    {
+      "path": "src/camera/SynchronizedCameraView.test.jsx",
+      "bytes": 24332,
+      "sha256": "c1e21b3e47eba73f3b77b471db228d1ab93b172b9539129272117b519fc8b586"
+    },
+    {
+      "path": "src/camera/testing/evidenceFixtures.js",
+      "bytes": 1494,
+      "sha256": "bb579c6cf1706173fd28ce3e3c2e0696ff9248205a9d498626dca0205fe7138c"
+    },
+    {
+      "path": "src/camera/testing/fixtures.js",
+      "bytes": 1250,
+      "sha256": "d840638d1c692782cba5ff244f3ed7c3bf3eaf4aa1442d71da98ed0aaac7138c"
+    },
+    {
+      "path": "src/config/backendConfig.js",
+      "bytes": 2776,
+      "sha256": "e9773c4c40d9a1accf62ff16c1517a0e2b3076b0dd36f1c56d59554f75fc9f60"
+    },
+    {
+      "path": "src/config/backendConfig.test.js",
+      "bytes": 3216,
+      "sha256": "b7572ac871d8a271c51e1a7d9d254968f722ede3979834b901cbfd86a916c554"
+    },
+    {
+      "path": "src/DashboardApp.jsx",
+      "bytes": 774,
+      "sha256": "6a8b79e4be23d68b1324c5ae08a7f4ac5dd41cf84f66b9c01cb60705d859d7ba"
+    },
+    {
+      "path": "src/DashboardApp.test.jsx",
+      "bytes": 4628,
+      "sha256": "827bb7881937d6a8f0e7c6594b03fb80997c3545d7ce432119d18d5d6eec714e"
+    },
+    {
+      "path": "src/dev/gpsSimulator.js",
+      "bytes": 5389,
+      "sha256": "01a7b75bf5ca56cd90f55c382224fd1973688bd9fd9cefc3d23d63507ca75e23"
+    },
+    {
+      "path": "src/dev/gpsSimulator.test.js",
+      "bytes": 963,
+      "sha256": "7a96d52788bf681fb9acb17fa62550f96b9f6ca9e54faeb0c1c16efe762f3f79"
+    },
+    {
+      "path": "src/gpsLatency.js",
+      "bytes": 630,
+      "sha256": "d0a81eb44b9936a65de9ce9d62d480cece649a80c4c44ed1ee3b9109260ba3d2"
+    },
+    {
+      "path": "src/gpsLatency.test.js",
+      "bytes": 801,
+      "sha256": "3e20eb684b23aafa68486e72ec271ccfeb0020211295eb829a7661c0f4273124"
+    },
+    {
+      "path": "src/gpsMotion.js",
+      "bytes": 1085,
+      "sha256": "6455fb9045cbb8b62fc01bfd5f3ae67d52091f8dbdb0a4b7db12bafaf752c2f9"
+    },
+    {
+      "path": "src/gpsMotion.test.js",
+      "bytes": 1890,
+      "sha256": "748f8155625992229d72e94b86cfa3da313f6dfabeeba686e91570e35f98088a"
+    },
+    {
+      "path": "src/index.css",
+      "bytes": 15439,
+      "sha256": "431295f1c8a713c359f2c4dc3fdacaedc85cf5186d4b28093a822f0443fe3ce3"
+    },
+    {
+      "path": "src/index.js",
+      "bytes": 346,
+      "sha256": "bbd4226ced9a8493fa0c910e40b5fffdea03b2ca1c3a163877da0de08c82730e"
+    },
+    {
+      "path": "src/LoadablePanel.jsx",
+      "bytes": 1666,
+      "sha256": "f9f088d7571b12644a1ca561524c2f0f483aafdb63172bb26a7c759831c00db1"
+    },
+    {
+      "path": "src/LoadablePanel.test.jsx",
+      "bytes": 2157,
+      "sha256": "e37161fa62f99ebc660c2644e32db8e6d337f51eb4eed5e3cc019eacb5b89f11"
+    },
+    {
+      "path": "src/logo.svg",
+      "bytes": 2632,
+      "sha256": "6000b0e9b0b05b3f112de04f0d039768a1db63588ff9b6ef7099dbd71632f383"
+    },
+    {
+      "path": "src/main.jsx",
+      "bytes": 326,
+      "sha256": "f33ab5a615ebf25740beea5ab98f8c1ad5bc620c51471892d48622c26792f169"
+    },
+    {
+      "path": "src/nonBlockingFonts.js",
+      "bytes": 657,
+      "sha256": "5e661bd2777147d53fb7eaf7dcc728d86a0c7e3e805233da2511186aa587d7a0"
+    },
+    {
+      "path": "src/nonBlockingFonts.test.js",
+      "bytes": 818,
+      "sha256": "11a3ba200d53511d7b4af87ba6908fd2d381027521c73c00a153594257c3532f"
+    },
+    {
+      "path": "src/records/gpsHistory.js",
+      "bytes": 15144,
+      "sha256": "c8e4157f676f1425b96b77ee69860f336fcb5f7b34cf62425d5cd6d251a61ca6"
+    },
+    {
+      "path": "src/records/gpsHistory.test.js",
+      "bytes": 12607,
+      "sha256": "a71e223e5c2b4c6595fa2befd9a038052c642655a4934d0d47d08f2fac54fe05"
+    },
+    {
+      "path": "src/records/GpsHistoryExplorer.jsx",
+      "bytes": 39846,
+      "sha256": "306bd0c4459e4b3283944f9f7bb47970c932b000cb0ed4f927b2985db7c2c49c"
+    },
+    {
+      "path": "src/records/GpsHistoryExplorer.test.jsx",
+      "bytes": 29719,
+      "sha256": "a65963576a1838429f272dab1e68cece4fb8998a831829887fdf61e87d221576"
+    },
+    {
+      "path": "src/reportWebVitals.js",
+      "bytes": 362,
+      "sha256": "714851669856152806c289f9aac6240b414bbac50c60ee4f7e6247f31eac0c1c"
+    },
+    {
+      "path": "src/services/busManagement.js",
+      "bytes": 2102,
+      "sha256": "354be84ba4a464df79abd5c040a2e0373b5a4282d54eb7330f72229ab04e4287"
+    },
+    {
+      "path": "src/services/busManagement.test.js",
+      "bytes": 2943,
+      "sha256": "74223c04bae71fa6fcd9b2a1daca07e3de04f61bd41f987df5595a8d7336c63e"
+    },
+    {
+      "path": "src/services/tomtom.js",
+      "bytes": 1321,
+      "sha256": "f921e2dec0d7efc72560e75fd3e876f43a2be69121f738005d3a0cd0d30e38a3"
+    },
+    {
+      "path": "src/settings/DevicePresence.jsx",
+      "bytes": 2698,
+      "sha256": "7e3825a8cababb9b87107ef7f2cdabfcf3748e19cc7fb6b5f485c95320287f5d"
+    },
+    {
+      "path": "src/settings/DevicePresence.test.jsx",
+      "bytes": 5488,
+      "sha256": "425b1a08d6ed20aec3530918f5c2f3792f7b17f3b992235de8109ec6d52b569d"
+    },
+    {
+      "path": "src/settings/devicePresenceService.js",
+      "bytes": 3667,
+      "sha256": "a4c61b35c9a693e58292555ca552264a19f68e281342e187b1cec7700f97ca82"
+    },
+    {
+      "path": "src/settings/DeviceSetup.jsx",
+      "bytes": 12747,
+      "sha256": "7e424de844945eb55421d8dc4239054ad38886e58f50e65a155cd570889a2375"
+    },
+    {
+      "path": "src/settings/DeviceSetup.test.jsx",
+      "bytes": 9187,
+      "sha256": "aef3ec35a89f5f806910334442199ad7e448ea7d09f319e8037814590e2a1dd3"
+    },
+    {
+      "path": "src/settings/deviceSetupModel.js",
+      "bytes": 2825,
+      "sha256": "79e3424da02f21e8baed30d1222a23b23fd8912846686384840e9715b8ef9474"
+    },
+    {
+      "path": "src/settings/deviceSetupModel.test.js",
+      "bytes": 3096,
+      "sha256": "5e8582527eda783d5c11cd964ac950abefcfa4294e555a3418370fed5225ecaa"
+    },
+    {
+      "path": "src/settings/LaptopWifiAccess.jsx",
+      "bytes": 2906,
+      "sha256": "bbd5eb904a022556cb34cf6c25ee6751909b788a5205deee5a12fd80ace86d8b"
+    },
+    {
+      "path": "src/settings/LaptopWifiAccess.test.jsx",
+      "bytes": 1545,
+      "sha256": "3502b48048a4ef672fe9a47327ca0e702acfc3bbf17643c4b662198f789d30b9"
+    },
+    {
+      "path": "src/settings/LocalNetworkRecovery.jsx",
+      "bytes": 2558,
+      "sha256": "e61e9eae7103225078d192d575efc8fbfcbb8e432ee888afb907fc5423a9ed78"
+    },
+    {
+      "path": "src/settings/LocalNetworkRecovery.test.jsx",
+      "bytes": 2239,
+      "sha256": "9b55a8912e5443c1bf4b0fcfff7c86e7092d977f32ecf7fa6d511754820a68b5"
+    },
+    {
+      "path": "src/settings/RemoteWifiPanel.jsx",
+      "bytes": 13677,
+      "sha256": "5700673f45f3384c1afbd2f1fcb4c09c10f0938c5a88bcc2a5316379de83dbe0"
+    },
+    {
+      "path": "src/settings/RemoteWifiPanel.test.jsx",
+      "bytes": 8287,
+      "sha256": "100754637e0714a83d3d69b404356a3019aaf03873a115cc364402ea221e6796"
+    },
+    {
+      "path": "src/settings/remoteWifiService.js",
+      "bytes": 10681,
+      "sha256": "0192f474a38aa35a767f6c0a2be31e36fc7b9a19c8c8f26ae3ad9866513896a9"
+    },
+    {
+      "path": "src/settings/remoteWifiService.test.js",
+      "bytes": 7946,
+      "sha256": "80c0123d8d93bf7324f6208ac4f3edfead5460a5f6b89189e86c19b3714be57c"
+    },
+    {
+      "path": "src/settings/setupConnectionService.js",
+      "bytes": 2596,
+      "sha256": "cc0b0ce529aac64014c510c85c857fde1171f9c3eb465f1dd8a745ae83e17b85"
+    },
+    {
+      "path": "src/settings/setupConnectionService.test.js",
+      "bytes": 3481,
+      "sha256": "45b26238f9021f968ad5a62e21ebceca5505be11365bc53cc47f41f5fd9ca92d"
+    },
+    {
+      "path": "src/settings/WifiManagement.jsx",
+      "bytes": 15734,
+      "sha256": "81bdab93a975f50963e85fe4700a5df1ef4198bc7f3428bbb218d65ada2c2683"
+    },
+    {
+      "path": "src/settings/WifiManagement.test.jsx",
+      "bytes": 14571,
+      "sha256": "136c1baf66e1b07f5c6e2b2d71eb88b4d88f64aa28f5ddc20ec204293b544fbf"
+    },
+    {
+      "path": "src/settings/wifiManagementModel.js",
+      "bytes": 4440,
+      "sha256": "6872a36f4e0c3a7d29c3d36530ee0c4a153c777ad4face60ea2254a5f7a9c1e8"
+    },
+    {
+      "path": "src/settings/wifiManagementModel.test.js",
+      "bytes": 4445,
+      "sha256": "dc1ac330446e36ba59ef2f02045e2db9f693953ac3586130db2f35a23b5eaa84"
+    },
+    {
+      "path": "src/settings/wifiStatusService.js",
+      "bytes": 3515,
+      "sha256": "7713e7615ca8e83d1d2e86816b1d123189dae04afcb021d58f74aedc7e0740f3"
+    },
+    {
+      "path": "src/settings/wifiStatusService.test.js",
+      "bytes": 5205,
+      "sha256": "9286ac0487d6a7b736f927dafff38102f5f771ceca81a4d12b08dbc84d5ec115"
+    },
+    {
+      "path": "src/setupTests.js",
+      "bytes": 241,
+      "sha256": "22583759d0045fdf8d62c9db0aacba9fd8bddde79c671aa08c97dcfd4e930cc6"
+    },
+    {
+      "path": "src/supabase.js",
+      "bytes": 688,
+      "sha256": "9df296f0a6b7e9b592db3fe63ebfe5048adbacd63bab72fb9245ffe918b0dfa5"
+    },
+    {
+      "path": "src/useLiveBuses.test.js",
+      "bytes": 2831,
+      "sha256": "39a9738202091af3073692c1386e90ca83c638ff609b86072aec97b3be94dc50"
+    },
+    {
+      "path": "src/useLiveGps.test.js",
+      "bytes": 21229,
+      "sha256": "8560f773c8808f2e5418c7f9651676f34a4fdaad30a4ec29b999274ae2bd3e66"
+    },
+    {
+      "path": "src/VehicleConditionPage.css",
+      "bytes": 10448,
+      "sha256": "d2af257122f207f7fd950c0c2254e21633fd66a072da965943a66fd1bee0e8a5"
+    },
+    {
+      "path": "tailwind.config.cjs",
+      "bytes": 151,
+      "sha256": "9a68dac46ef4c5b0fca26b1ed21b30a7f22de6ff33fc50c1efc1c7bae5f3a1d0"
+    },
+    {
+      "path": "vercel.json",
+      "bytes": 2283,
+      "sha256": "a2092b461edbb1b5f1f87b46ff3f48f6d5841dd6f751397517bf61ca3b48973a"
+    },
+    {
+      "path": "vite.config.mjs",
+      "bytes": 3027,
+      "sha256": "1bb2a379e265416a4e3869097a7aed51555b7c750d27905da7a0652b4a3fb9d2"
+    }
+  ]
+}

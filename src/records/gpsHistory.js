@@ -146,7 +146,7 @@ export function formatGpsHistoryTimestamp(timestamp, options = {}) {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-    ...(options.seconds ? { second: '2-digit' } : {}),
+    ...(options.seconds !== false ? { second: '2-digit' } : {}),
   }).format(date);
 }
 

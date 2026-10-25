@@ -23,3 +23,12 @@ test('camera recovery proxy rewrites only the backend Host while preserving expl
   assert.deepEqual(headers, { Authorization: 'Bearer synthetic-only', Origin: 'http://localhost:3000' });
   assert.deepEqual(cameraFrameProxy('production', env, []), {});
 });
+
+test('numerical history is a GET-shaped own-laptop path, not an upload or arbitrary proxy target', () => {
+  const config = cameraFrameProxy('development', { VITE_CAMERA_FRAMES_ENABLED: 'true', VITE_BACKEND_URL: 'http://192.168.1.5:5000' }, ['192.168.1.5']);
+  const patterns = Object.keys(config).map(value => new RegExp(value));
+  assert.ok(patterns.some(pattern => pattern.test('/api/camera-frames/buses/bus-two/history?from=timestamp&to=timestamp')));
+  for (const url of ['/api/camera-frames/buses/bus-two/delete', '/api/camera-frames/buses/bus-two/history/anything', '/api/camera-frames/devices/GPS-002/frames']) {
+    assert.ok(!patterns.some(pattern => pattern.test(url)));
+  }
+});

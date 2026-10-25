@@ -57,17 +57,17 @@ export default function LoginPage({ authenticationError = '', authorizationError
         
         {/* Left Side Content */}
         <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
-          <div className="w-full flex justify-center lg:justify-start z-10 mb-0 pointer-events-none">
+          <div className="w-full h-[116px] sm:h-[138px] lg:h-[154px] flex items-center justify-center overflow-hidden z-10 mb-4 pointer-events-none">
             <img 
               src={CENTRABUS_LOGIN_LOGO_SRC} 
               alt="CentraBus Logo" 
-              className="w-[260px] sm:w-[320px] lg:w-[400px] max-w-none h-auto object-contain -my-10 lg:-my-14 lg:-ml-12" 
+              className="w-[340px] sm:w-[420px] lg:w-[480px] max-w-full h-auto shrink-0 object-contain"
               style={{ filter: 'sepia(0.75) saturate(1.5) hue-rotate(305deg) brightness(0.8)' }}
             />
           </div>
           
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#1F1F1F] leading-[1.15]">
-            Welcome to <br className="hidden sm:block" />
+          <h1 aria-label="Welcome to CentraBus" className="text-[clamp(1.6rem,3.2vw,3rem)] whitespace-nowrap font-extrabold tracking-tight text-[#1F1F1F] leading-[1.15]">
+            Welcome to{' '}
             <span className="text-[#1F1F1F]">Centra</span><span className="text-[#A1262F]">Bus</span>
           </h1>
           

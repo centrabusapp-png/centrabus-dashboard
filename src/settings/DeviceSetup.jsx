@@ -9,6 +9,8 @@ import DevicePresence from './DevicePresence';
 import { pendingPresenceService } from './devicePresenceService';
 import RemoteWifiPanel from './RemoteWifiPanel';
 import { pendingRemoteWifiService } from './remoteWifiService';
+import LocalNetworkRecovery from './LocalNetworkRecovery';
+import LaptopWifiAccess from './LaptopWifiAccess';
 
 const tabs = [{ id: 'network', label: 'Wi-Fi & Internet', icon: Wifi },
   { id: 'checks', label: 'Connection checks', icon: Link2 }, { id: 'gps', label: 'GPS status', icon: Radio }];
@@ -85,8 +87,11 @@ export default function DeviceSetup({ authorized = false, wifiService = pendingW
           {deviceId === device.id && <CheckCircle2 className="shrink-0 text-[#8E1F2F]" size={18} aria-hidden="true" />}
         </button>)}
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-slate-500">These are configured devices, not a Wi-Fi scan. Real network discovery and connection require an enrolled, authenticated Pi agent.</p>
-      {!remoteWifiService.enabled && <DevicePresence authorized={authorized} service={presenceService} deviceId={deviceId} />}
+      <p className="mt-3 text-xs leading-relaxed text-slate-500">{deviceId === 'GPS-002' && !remoteWifiService.enabled
+        ? 'Pi2 Wi-Fi opens in a private laptop window through authenticated SSH. Scan first; a network switch needs your approval.'
+        : 'These are configured devices, not a Wi-Fi scan. Real network discovery and connection require an enrolled, authenticated Pi agent.'}</p>
+      <LocalNetworkRecovery config={config} />
+      {!remoteWifiService.enabled && !(deviceId === 'GPS-002' && tab === 'network') && <DevicePresence authorized={authorized} service={presenceService} deviceId={deviceId} />}
     </div>
     <div role="tablist" aria-label="Device setup sections" className="grid grid-cols-3 gap-1 border-b border-slate-100 px-2 pt-2 sm:px-5">
       {tabs.map(({ id, label, icon: Icon }, index) => <button key={id} ref={(element) => { tabButtons.current[index] = element; }} id={`setup-tab-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls={`setup-panel-${id}`} tabIndex={tab === id ? 0 : -1}
@@ -95,7 +100,7 @@ export default function DeviceSetup({ authorized = false, wifiService = pendingW
     {tabs.map(({ id }) => <div key={id} id={`setup-panel-${id}`} role="tabpanel" aria-labelledby={`setup-tab-${id}`} hidden={tab !== id} tabIndex={0}>
       {id === 'network' && tab === id && (remoteWifiService.enabled
         ? <RemoteWifiPanel key={deviceId} authorized={authorized} service={remoteWifiService} deviceId={deviceId} />
-        : <WifiManagement authorized={authorized} service={wifiService} deviceId={deviceId} embedded />)}
+        : deviceId === 'GPS-002' ? <LaptopWifiAccess /> : <WifiManagement authorized={authorized} service={wifiService} deviceId={deviceId} embedded />)}
       {id === 'checks' && <div className="space-y-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-extrabold text-slate-900">Connection checks</h3><p className="mt-1 text-xs text-slate-500">Browser and server checks are separate from {deviceId}’s Internet connection.</p></div><button type="button" onClick={runCheck} disabled={!config.configured || check.status === 'checking'} className={buttonStyle}><RefreshCcw size={15} aria-hidden="true" />Check backend</button></div>
         <div className="grid gap-3 lg:grid-cols-2">

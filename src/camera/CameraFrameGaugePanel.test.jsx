@@ -26,7 +26,7 @@ test('compact view keeps six gauges in physical order with one freshness label a
   await screen.findByText('5 of 6 detected');
   expect(screen.getByRole('status')).toHaveTextContent('Fresh · 1s ago');
   expect(screen.getAllByText('Angle: 101.25°')).toHaveLength(5);
-  expect(screen.getByText('Uncertain · no value')).toBeInTheDocument();
+  expect(screen.getByText('Reading unavailable')).toBeInTheDocument();
   expect(screen.queryByText(/Capture source:2/)).not.toBeInTheDocument();
   expect(container.querySelectorAll('.is-compact')).toHaveLength(6);
   expect([...container.querySelectorAll('[data-gauge-key]')].map((el) => el.dataset.gaugeKey)).toEqual(FRAME_GAUGE_KEYS);

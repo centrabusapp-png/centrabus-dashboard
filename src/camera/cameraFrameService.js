@@ -1,4 +1,4 @@
-import { LIVE_GAUGE_KEYS } from './liveCameraGaugeModel';
+import { LIVE_GAUGE_KEYS } from './liveCameraGaugeModel.js';
 
 export const FRAME_GAUGE_KEYS = LIVE_GAUGE_KEYS;
 const id = (s) => typeof s === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(s);
@@ -49,9 +49,11 @@ export function frameGauges(frame, now = Date.now(), state = 'live') {
       unverified: true, dialPositionPercent: r?.dial_percent ?? null };
   });
 }
-export function createCameraFrameService({ config, enabled = false, getSession, fetchImpl = (...args) => fetch(...args) } = {}) {
+export function createCameraFrameService({ development = process.env.NODE_ENV !== 'production', config, enabled = false, previewOnly = false, getSession, fetchImpl = (...args) => fetch(...args) } = {}) {
   if (!enabled || config?.configured !== true) return Object.freeze({ enabled: false });
-  const service = { enabled: true, fastPreview: true, async read(deviceId, { signal, preview = false, live = false } = {}) {
+  if (!development && (config.cloudCameraEnabled !== true || !config.origin?.startsWith('https://'))) return Object.freeze({ enabled: false });
+  const endpoint = development ? '' : config.origin;
+  const service = { enabled: true, fastPreview: true, previewOnly: previewOnly === true, async read(deviceId, { signal, preview = false, live = false } = {}) {
     if (!['GPS-001', 'GPS-002'].includes(deviceId)) throw new Error('invalid-camera-device');
     const controller = new AbortController();
     let rejectDeadline;
@@ -65,11 +67,21 @@ export function createCameraFrameService({ config, enabled = false, getSession, 
       const session = await getSession();
       const token = session?.data?.session?.access_token;
       if (session?.error || !token || signal?.aborted || controller.signal.aborted) throw new Error('camera-authentication-required');
-      // Loopback Vite proxy only; never place an admin bearer on the HTTP LAN.
-      const response = await fetchImpl(`/api/camera-frames/devices/${deviceId}/${live ? 'live' : 'latest'}?preview=${preview ? '1' : '0'}`, {
-        cache: 'no-store', credentials: 'omit', redirect: 'error', signal: controller.signal,
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-      });
+      // Development uses the loopback proxy; approved production uses the configured HTTPS backend.
+      let response;
+      try {
+        response = await fetchImpl(`${endpoint}/api/camera-frames/devices/${deviceId}/${live ? 'live' : 'latest'}?preview=${preview ? '1' : '0'}`, {
+          cache: 'no-store', credentials: 'omit', redirect: 'error', signal: controller.signal,
+          headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+        });
+      } catch (error) {
+        // A fetch transport failure is a brief reconnect, not an authority
+        // rejection. Parsing/identity/auth errors below still clear the frame.
+        if (live && error?.name === 'TypeError' && !signal?.aborted && !controller.signal.aborted) {
+          throw new Error('camera-temporary-unavailable');
+        }
+        throw error;
+      }
       // Authority lookup failures (503) must clear the old image immediately.
       if (!response.ok && live && [408,429,500,502,504].includes(response.status)) throw new Error('camera-temporary-unavailable');
       if (!response.ok || !response.headers?.get('content-type')?.includes('application/json')) throw new Error('camera-not-ready');
@@ -93,7 +105,7 @@ export function createCameraFrameService({ config, enabled = false, getSession, 
   };
   // Only the explicit Capture callback calls this method. No preview polling
   // invokes the local disk writer, and the browser cannot choose a file path.
-  service.saveCapture = async (frame, {blob}, {signal} = {}) => {
+  if (development) service.saveCapture = async (frame, {blob}, {signal} = {}) => {
     if (!['GPS-001','GPS-002'].includes(frame?.device_id) || !id(frame.capture_id)
       || !blob || blob.type !== 'image/png' || !blob.size || blob.size > 20*1024*1024) throw Error('invalid-capture');
     const controller=new AbortController();

@@ -8,30 +8,92 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=()" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'; object-src 'none'; base-uri 'self'" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+        }
       ]
     },
     {
       "source": "/assets/:file([A-Za-z0-9_.-]+-[A-Za-z0-9_-]{8}\\.js)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
       "source": "/assets/:file([A-Za-z0-9_.-]+-[A-Za-z0-9_-]{8}\\.css)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
       "source": "/:path(api|auth|rest|realtime|storage|functions|health)/:rest*",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
     }
   ],
   "rewrites": [
-    { "source": "/live-map", "destination": "/index.html" },
-    { "source": "/alerts", "destination": "/index.html" },
-    { "source": "/vehicle-condition", "destination": "/index.html" }
+    {
+      "source": "/live-map",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/alerts",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/vehicle-condition",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/live-camera",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/records",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/system-health",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:path((?!(?:api|auth|rest|realtime|storage|functions|health|readyz|assets)(?:/|$)).*)",
+      "destination": "/index.html"
+    }
   ]
 }

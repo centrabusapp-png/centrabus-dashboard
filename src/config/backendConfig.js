@@ -14,6 +14,8 @@ export function resolveBackendConfig({
   wifiStatusEnabled = process.env.VITE_WIFI_STATUS_ENABLED,
   devicePresenceEnabled = process.env.VITE_DEVICE_PRESENCE_ENABLED,
   remoteWifiEnabled = process.env.VITE_REMOTE_WIFI_ENABLED,
+  localNetworkRecovery = process.env.VITE_LOCAL_NETWORK_RECOVERY,
+  cloudCameraMode = process.env.VITE_CLOUD_CAMERA_MODE,
 } = {}) {
   const production = nodeEnv === 'production';
   const explicit = typeof backendUrl === 'string' && backendUrl.trim() !== '';
@@ -35,6 +37,7 @@ export function resolveBackendConfig({
     } catch { /* Invalid deployment values never become relative requests. */ }
   }
   return Object.freeze({
+    cloudCameraEnabled: production && origin !== null && cloudCameraMode === 'approved-cloud-gps-camera',
     configured: origin !== null,
     origin,
     reason,
@@ -43,6 +46,7 @@ export function resolveBackendConfig({
     wifiStatusEnabled: wifiStatusEnabled === 'true',
     devicePresenceEnabled: devicePresenceEnabled === 'true',
     remoteWifiEnabled: remoteWifiEnabled === 'true' && !production,
+    localNetworkRecoveryEnabled: localNetworkRecovery === 'true' && !production && origin === 'http://127.0.0.1:5000',
   });
 }
 

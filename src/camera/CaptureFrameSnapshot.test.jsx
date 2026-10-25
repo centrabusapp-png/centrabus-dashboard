@@ -35,13 +35,13 @@ test.each([[false,false],[true,false],[true,true]])('real frozen PNG completes o
     expect(context.drawImage).toHaveBeenCalledTimes(7);
     const labels=context.fillText.mock.calls.map(([text])=>text);
     expect(labels).toContain('CAPTURE DETAILS');
-    expect(labels).toContain(detected?'35':'Not detected');
+    expect(labels).toContain(detected?'35':'Reading unavailable');
     if(detected){
       expect(labels.filter(text => text === 'Angle: 90.00°')).toHaveLength(6);
-      expect(labels).toContain('Below half (E–F) · dial estimate');
-      expect(labels).not.toContain('Half · dial estimate');
-      expect(labels).toContain('Mid-range · dial estimate');
-      expect(labels).toContain('Pressure reading · dial estimate');
+      expect(labels).toContain('Below half (E–F)');
+      expect(labels).not.toContain('Half');
+      expect(labels).toContain('Mid-range');
+      expect(labels).toContain('Pressure reading');
     }
     else expect(labels.filter(text => text === 'Angle: —')).toHaveLength(6);
     expect(labels).toContain(detected?"Only this capture's detected values are included.":'No detected values for this image. Older values NOT copied.');

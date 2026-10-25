@@ -21,7 +21,6 @@ beforeEach(() => {
 afterEach(() => { jest.restoreAllMocks(); URL.createObjectURL = createUrl; URL.revokeObjectURL = revokeUrl; });
 
 async function playing() {
-  fireEvent.click(screen.getByRole('switch', { name: 'Pi1 camera preview' }));
   await screen.findByText('Waiting for video');
   const video = screen.getByLabelText('Pi1 live camera video');
   for (const [key, value] of Object.entries({ readyState: 2, videoWidth: 640, videoHeight: 360, paused: false, ended: false })) {
@@ -66,7 +65,6 @@ test('comparison contains the selected camera and all six displayed numerical re
 test('no feed, no decoded frame, paused and buffering frames cannot be captured', async () => {
   const view = render(<LiveCameraView authorized />); expect(button()).toBeDisabled();
   view.rerender(<LiveCameraView authorized service={service} />);
-  fireEvent.click(screen.getByRole('switch', { name: 'Pi1 camera preview' }));
   await screen.findByText('Waiting for video'); expect(button()).toBeDisabled();
   const video = screen.getByLabelText('Pi1 live camera video');
   Object.defineProperty(video, 'paused', { value: false, configurable: true });
@@ -90,13 +88,13 @@ test('rapid duplicate clicks encode only once and show an actionable sanitized f
   expect(click).not.toHaveBeenCalled();
 });
 
-test.each(['switch', 'stop', 'auth-loss', 'unmount'])('pending encoding cannot download after %s', async (action) => {
+test.each(['switch', 'stream-ended', 'auth-loss', 'unmount'])('pending encoding cannot download after %s', async (action) => {
   let complete; encode.mockImplementation((callback) => { complete = callback; });
   const view = render(<LiveCameraView authorized service={service} />); await playing();
   fireEvent.click(button());
   await waitFor(() => expect(encode).toHaveBeenCalledTimes(1));
   if (action === 'switch') fireEvent.click(screen.getByRole('tab', { name: /Pi2/ }));
-  else if (action === 'stop') fireEvent.click(screen.getByRole('switch', { name: 'Pi1 camera preview' }));
+  else if (action === 'stream-ended') act(() => track.dispatchEvent(new Event('ended')));
   else if (action === 'auth-loss') view.rerender(<LiveCameraView service={service} />);
   else view.unmount();
   await act(async () => complete(new Blob(['fixture'], { type: 'image/png' })));

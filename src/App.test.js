@@ -110,6 +110,18 @@ describe('compact Vehicle Condition page', () => {
   const bus = { id: 'internal-bus-long-id', plateNumber: 'BUS 159', status: 'active', routeName: 'LIMA–FPIP',
     gps: { latitude: 14, longitude: 121, gpsUpdatedAt: 100000, rawSpeedKmh: 0.5, routeStatus: 'ON ROUTE', distanceFromRouteM: 4 } };
   const buses = [bus, { ...bus, id: 'second-internal-id', plateNumber: 'BUS 04' }];
+  test('trip CSV export uses the selected bus and closes when that selection changes', () => {
+    const props = { buses, selectedBusId: bus.id, fleetStatus: 'ready', nowMs: 105000,
+      frameService: { enabled: false }, historyService: { enabled: true, exportCsv: jest.fn() },
+      onSelectBus: jest.fn(), onNavigate: jest.fn() };
+    const view = render(<VehicleConditionPage {...props} selectedBus={bus} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Download CSV' }));
+    expect(within(screen.getByRole('dialog')).getByText('BUS 159')).toBeInTheDocument();
+    view.rerender(<VehicleConditionPage {...props} selectedBus={buses[1]} selectedBusId={buses[1].id} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download CSV' }));
+    expect(within(screen.getByRole('dialog')).getByText('BUS 04')).toBeInTheDocument();
+  });
   test('shows important controls and six compact gauges without duplicate explanations or internal IDs', () => {
     const onNavigate = jest.fn();
     const { container } = render(<VehicleConditionPage buses={buses} selectedBus={bus} selectedBusId={bus.id}
@@ -233,6 +245,7 @@ const mockLeafletMap = {
   fitBounds: jest.fn(),
   flyTo: jest.fn(),
   flyToBounds: jest.fn(),
+  panTo: jest.fn(),
   getZoom: jest.fn(() => 12),
   on: jest.fn(),
   off: jest.fn(),
@@ -2183,6 +2196,22 @@ test('initial fleet framing runs once and ignores subsequent GPS coordinate upda
   rerender(<FitFleetBounds buses={[{ ...initialBus, gps: { latitude: 14.096, longitude: 121.161 } }]} />);
   expect(mockLeafletMap.setView).toHaveBeenCalledTimes(1);
   expect(mockLeafletMap.fitBounds).not.toHaveBeenCalled();
+});
+
+test('selected bus is followed as it moves and clearing selection reframes the fleet', () => {
+  const first = { id: 'follow-a', gps: { latitude: 14.095, longitude: 121.16 } };
+  const second = { lat: 14.2, lng: 121.2 };
+  const props = { selectedBus: null, visiblePoints: [{ lat: 14.095, lng: 121.16 }, second], routePoints: [],
+    centerBusSignal: 0, centerAllSignal: 0, resetViewSignal: 0, resizeSignal: 'initial' };
+  const { rerender } = render(<MapViewportController {...props} />);
+  rerender(<MapViewportController {...props} selectedBus={first} />);
+  expect(mockLeafletMap.panTo).toHaveBeenCalledWith([14.095, 121.16], expect.objectContaining({ animate: true }));
+  rerender(<MapViewportController {...props} selectedBus={{ ...first, gps: { latitude: 14.096, longitude: 121.161 } }}
+    visiblePoints={[{ lat: 14.096, lng: 121.161 }, second]} />);
+  expect(mockLeafletMap.panTo).toHaveBeenLastCalledWith([14.096, 121.161], expect.objectContaining({ animate: true }));
+  mockLeafletMap.flyToBounds.mockClear();
+  rerender(<MapViewportController {...props} visiblePoints={[{ lat: 14.096, lng: 121.161 }, second]} />);
+  expect(mockLeafletMap.flyToBounds).toHaveBeenCalledTimes(1);
 });
 
 test.each(['unmount', 'unload'])('initial fleet frame ignores late callbacks after %s', (mode) => {

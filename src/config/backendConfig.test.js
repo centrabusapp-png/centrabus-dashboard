@@ -42,3 +42,9 @@ test('remote Wi-Fi is never activated by a production build or a truthy non-stri
   expect(config({ nodeEnv: 'development', remoteWifiEnabled: true }).remoteWifiEnabled).toBe(false);
   expect(config({ nodeEnv: 'development', remoteWifiEnabled: 'true' }).remoteWifiEnabled).toBe(true);
 });
+test('local recovery status is restricted to the explicit development loopback session', () => {
+  const values = { backendUrl: 'http://127.0.0.1:5000', localNetworkRecovery: 'true' };
+  expect(config(values).localNetworkRecoveryEnabled).toBe(false);
+  expect(config({ ...values, nodeEnv: 'development' }).localNetworkRecoveryEnabled).toBe(true);
+  expect(config({ ...values, nodeEnv: 'development', backendUrl: 'http://192.168.0.174:5000' }).localNetworkRecoveryEnabled).toBe(false);
+});

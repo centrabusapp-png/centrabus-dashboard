@@ -28,7 +28,7 @@ export default function DevicePresence({ authorized, service = pendingPresenceSe
   const age = initialAge + (now - data.readAt);
   const online = !data.failed && row?.reporting === true && Number.isFinite(age) && age >= 0 && age <= 45000;
   return <div aria-label="Pi setup check-in" className="mt-4 flex flex-wrap items-start justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
-    <div className="min-w-0"><p className="font-extrabold text-slate-800">{deviceId} setup connection</p><p className="mt-1 leading-relaxed text-slate-500">{service === pendingPresenceService ? 'Start CentraBus with start-local.cmd to enable local setup check-ins.'
+    <div className="min-w-0"><p className="font-extrabold text-slate-800">{deviceId} setup connection</p><p className="mt-1 leading-relaxed text-slate-500">{service === pendingPresenceService ? 'Use 04 - Laptop Dashboard and Backend.cmd to enable local setup check-ins.'
       : data.failed ? 'Backend check-in status unavailable. No connection is assumed.'
       : online ? `Verified setup report · ${Math.floor(age / 1000)}s ago. This is not GPS freshness or proof of the same Wi-Fi SSID.`
       : 'Waiting for the Pi setup app to check in. Configure its laptop backend address once.'}</p></div>
