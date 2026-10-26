@@ -2,7 +2,10 @@ import { LIVE_GAUGE_KEYS } from './liveCameraGaugeModel.js';
 import { cameraCsvTable } from './cameraCsvFormat.js';
 
 const OFFSET = 8 * 3600000;
-export const CONDITION_HISTORY_MAX_CAPTURES = 20000;
+// A day at one numerical capture per second can exceed the old 20,000 limit.
+export const CONDITION_HISTORY_MAX_CAPTURES = 100000;
+const EXPORT_TIMEOUT_MS = 10 * 60 * 1000;
+const PAGE_INTERVAL_MS = 800;
 const textId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 const utc = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 const bounded = (value, min, max) => value === null || typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
@@ -75,15 +78,21 @@ export function createConditionHistoryService({ config, development = process.en
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) controller.abort();
-    const timer = setTimeout(abort, 120000);
+    const timer = setTimeout(abort, EXPORT_TIMEOUT_MS);
     const frames = [], cursors = new Set(), captures = new Set();
-    let cursor = null, snapshot = null;
+    let cursor = null, snapshot = null, lastRequestAt = null;
     try {
       do {
         if (controller.signal.aborted) throw Error('history-cancelled');
         const params = new URLSearchParams({ from, to });
         if (cursor) params.set('cursor', cursor);
         if (snapshot) params.set('snapshot', snapshot);
+        // Stay below the history API's 90 requests/minute while reading a full
+        // day's pages. Cancelling the export also cancels this wait.
+        if (lastRequestAt !== null) {
+          await waitForHistoryPage(Math.max(0, PAGE_INTERVAL_MS - (Date.now() - lastRequestAt)), controller.signal);
+        }
+        lastRequestAt = Date.now();
         const page = await boundedHistoryPage(async requestSignal => {
           const session = await getSession();
           const token = session?.data?.session?.access_token;
@@ -135,6 +144,16 @@ export function createConditionHistoryService({ config, development = process.en
       return buildConditionHistoryCsv({ frames, busId, busLabel, from, to, snapshot, includeDetails, now });
     } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
   } };
+}
+
+async function waitForHistoryPage(delayMs, signal) {
+  if (signal.aborted) throw Error('history-cancelled');
+  if (!delayMs) return;
+  await new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); reject(Error('history-cancelled')); };
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, delayMs);
+    signal.addEventListener('abort', abort, { once: true });
+  });
 }
 
 async function boundedHistoryPage(work, signal) {

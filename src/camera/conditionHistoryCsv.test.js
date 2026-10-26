@@ -38,6 +38,15 @@ test('exports one chronological row per historical capture, six labelled values,
   expect(JSON.stringify(frame)).toBe(original);
 });
 
+test('a full-day report above the former 20,000 capture limit retains every row', () => {
+  const frames = Array.from({ length: 20001 }, (_, index) => fixture(`day:${index + 1}`));
+  const result = buildConditionHistoryCsv({ ...request(), frames, snapshot: range.to });
+  expect(result.captures).toBe(20001);
+  expect(result.readingCount).toBe(120006);
+  expect(result.csv.trim().split('\r\n')).toHaveLength(20002);
+  expect(result.csv).toContain('"0","0","0","","0","0","5"');
+}, 30000);
+
 test('optional technical columns preserve original provenance and sorting never mutates the source array', () => {
   const first = fixture('first'), second = { ...fixture('second'), captured_at: '2026-10-23T02:03:04.567Z' };
   const frames = [second, first], before = JSON.stringify(frames);
@@ -60,10 +69,13 @@ test('neutralizes formula identities and rejects duplicate, cross-bus, outside-p
 });
 
 test('retrieves every page with one pinned snapshot and original bus/range; development bearer stays on same origin', async () => {
+  const requestedAt = [];
   const fetchImpl = jest.fn().mockResolvedValueOnce(response(page([fixture()], { nextCursor: 'cursor1' })))
     .mockResolvedValueOnce(response(page([fixture('trip:2')])));
-  const progress = jest.fn(), result = await service(fetchImpl).exportCsv(request({ onProgress: progress }));
+  const fetchPage = (...args) => { requestedAt.push(Date.now()); return fetchImpl(...args); };
+  const progress = jest.fn(), result = await service(fetchPage).exportCsv(request({ onProgress: progress }));
   expect(result.captures).toBe(2); expect(progress.mock.calls).toEqual([[1],[2]]);
+  expect(requestedAt[1] - requestedAt[0]).toBeGreaterThanOrEqual(750);
   const [url, options] = fetchImpl.mock.calls[1];
   expect(url).toMatch(/^\/api\/camera-frames\/buses\/test-bus\/history\?/);
   const params = new URL(url, 'http://localhost').searchParams;
@@ -110,4 +122,13 @@ test('abort before request does not fetch or export, and missing authorization f
   expect(fetchImpl).not.toHaveBeenCalled();
   await expect(service(fetchImpl, { getSession: async () => ({ data: {} }) }).exportCsv(request())).rejects.toThrow('history-sign-in-required');
   expect(fetchImpl).not.toHaveBeenCalled();
+});
+
+test('cancelling while waiting between pages prevents further reads and partial CSV', async () => {
+  const controller = new AbortController();
+  const fetchImpl = jest.fn(async () => response(page([fixture()], { nextCursor: 'cursor1' })));
+  const exporting = service(fetchImpl).exportCsv(request({ signal: controller.signal,
+    onProgress: () => setTimeout(() => controller.abort(), 10) }));
+  await expect(exporting).rejects.toThrow('history-cancelled');
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
 });

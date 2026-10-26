@@ -1,6 +1,6 @@
 {
   "schema": "centrabus-dashboard-source-v1",
-  "digest": "2072f8cbfcc1f4a3fbc9c85f5f12db1cdac9b20e972c413215eb9db04fa23209",
+  "digest": "1914bbd8656162800e8e92b233c531f704ad1b58b10e343555ba75b02478f9dd",
   "files": [
     {
       "path": ".env.example",
@@ -41,6 +41,11 @@
       "path": "cameraFrameProxy.test.mjs",
       "bytes": 2620,
       "sha256": "70bc9d18af68d41f278abc0742c8a56e69f5360a6f2c89b6de3b1111d7bf1c03"
+    },
+    {
+      "path": "deployment/condition-history-export.md",
+      "bytes": 1115,
+      "sha256": "38b7c6a31c0e10705055d72d54dc48ec39f593a78e4ba8c50f6ef17b75602621"
     },
     {
       "path": "deployment/launch-profile.json",
@@ -389,13 +394,13 @@
     },
     {
       "path": "src/camera/conditionHistoryCsv.js",
-      "bytes": 10115,
-      "sha256": "0ec957640ff60f540ff79ebf5d247066df6551d011c84cab43d49ebafaa61f51"
+      "bytes": 11131,
+      "sha256": "df1aa636a3543b1e639a53b4f6231ffb360f56f37f7b19cc89ece4bf98a8858e"
     },
     {
       "path": "src/camera/conditionHistoryCsv.test.js",
-      "bytes": 8608,
-      "sha256": "d9cf57af39fc56768bac55b520781c3ea71bfb2500410d05f8838a1b0659525f"
+      "bytes": 9800,
+      "sha256": "aed1b6c0572d3c4bfe6348f3f3c074748df441631a261fcb1a2b5bfa5a1f0a4e"
     },
     {
       "path": "src/camera/ConditionHistoryExport.jsx",
