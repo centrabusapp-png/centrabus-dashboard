@@ -1,7 +1,11 @@
-import { LIVE_GAUGE_KEYS, LIVE_GAUGE_TITLES } from './liveCameraGaugeModel.js';
+import { LIVE_GAUGE_KEYS } from './liveCameraGaugeModel.js';
+import { cameraCsvTable } from './cameraCsvFormat.js';
 
 const OFFSET = 8 * 3600000;
-export const CONDITION_HISTORY_MAX_CAPTURES = 20000;
+// A day at one numerical capture per second can exceed the old 20,000 limit.
+export const CONDITION_HISTORY_MAX_CAPTURES = 100000;
+const EXPORT_TIMEOUT_MS = 10 * 60 * 1000;
+const PAGE_INTERVAL_MS = 800;
 const textId = value => typeof value === 'string' && value.length > 0 && value.length <= 128;
 const utc = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 const bounded = (value, min, max) => value === null || typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
@@ -43,66 +47,66 @@ function validateFrame(frame, { busId, from, to, snapshot }) {
   return frame;
 }
 
-function csvCell(value) {
-  const text = value == null ? '' : String(value);
-  const safe = typeof value === 'string' && /^[\s\u0000-\u001f]*[=+\-@]/.test(text) ? `'${text}` : text;
-  return `"${safe.replace(/"/g, '""')}"`;
-}
-
 // Historical captures are intentionally NOT subjected to the live 15s gate.
 // Original observation times/quality stay intact; export time is a separate field.
-export function buildConditionHistoryCsv({ frames, busId, busLabel, from, to, snapshot, now = Date.now() }) {
+export function buildConditionHistoryCsv({ frames, busId, busLabel, from, to, snapshot, includeDetails = false, now = Date.now() }) {
   if (!textId(busId) || !utc(from) || !utc(to) || !utc(snapshot) || Date.parse(from) >= Date.parse(to)
       || !Number.isFinite(now) || !Array.isArray(frames) || !frames.length || frames.length > CONDITION_HISTORY_MAX_CAPTURES) throw Error('invalid-history-response');
-  const rows = [['bus', 'bus_id', 'device_id', 'camera_id', 'capture_id', 'captured_at_utc', 'captured_at_pht',
-    'received_at_utc', 'exported_at_utc', 'gauge', 'quality', 'value', 'unit', 'angle_deg', 'dial_position_percent',
-    'processor_version', 'physical_accuracy']];
   const seen = new Set();
-  for (const input of frames) {
+  const checked = frames.map(input => {
     const frame = validateFrame(input, { busId, from, to, snapshot });
     const key = JSON.stringify([frame.camera_id, frame.capture_id]);
     if (seen.has(key)) throw Error('duplicate-history-capture');
     seen.add(key);
-    for (const gauge of LIVE_GAUGE_KEYS) {
-      const reading = frame.readings.find(row => row.gauge_key === gauge);
-      rows.push([busLabel || busId, busId, frame.device_id, frame.camera_id, frame.capture_id, frame.captured_at,
-        `${philippineDateTime(Date.parse(frame.captured_at))}+08:00`, frame.received_at, new Date(now).toISOString(),
-        LIVE_GAUGE_TITLES[gauge], reading.quality, reading.value, reading.unit, reading.angle_deg, reading.dial_percent,
-        frame.processor_version, 'unverified']);
-    }
-  }
-  const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+    return frame;
+  });
+  checked.sort((a, b) => Date.parse(a.captured_at) - Date.parse(b.captured_at)
+    || a.camera_id.localeCompare(b.camera_id) || a.capture_id.localeCompare(b.capture_id));
+  const { csv } = cameraCsvTable({ frames: checked, busLabel, includeDetails, now });
   const label = String(busLabel || busId).replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64) || 'bus';
-  return { csv, blob: new Blob([csv], { type: 'text/csv;charset=utf-8' }), captures: frames.length, rows: frames.length * 6,
+  return { csv, blob: new Blob([csv], { type: 'text/csv;charset=utf-8' }), captures: frames.length, rows: frames.length,
+    readingCount: frames.length * 6,
     filename: `centrabus-${label}-condition-${from.replace(/[:.]/g, '-')}-to-${to.replace(/[:.]/g, '-')}.csv` };
 }
 
 export function createConditionHistoryService({ config, development = process.env.NODE_ENV !== 'production', getSession, fetchImpl = (...args) => fetch(...args) }) {
   const enabled = config?.configured === true && (development || config.origin?.startsWith('https://'));
-  return { enabled, async exportCsv({ busId, busLabel, from, to, signal, onProgress, now = Date.now() }) {
+  return { enabled, async exportCsv({ busId, busLabel, from, to, signal, onProgress, includeDetails = false, now = Date.now() }) {
     if (!enabled || !textId(busId) || !utc(from) || !utc(to) || Date.parse(from) >= Date.parse(to)
         || Date.parse(to) - Date.parse(from) > 31 * 86400000) throw Error('history-not-configured');
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) controller.abort();
-    const timer = setTimeout(abort, 120000);
+    const timer = setTimeout(abort, EXPORT_TIMEOUT_MS);
     const frames = [], cursors = new Set(), captures = new Set();
-    let cursor = null, snapshot = null;
+    let cursor = null, snapshot = null, lastRequestAt = null;
     try {
       do {
         if (controller.signal.aborted) throw Error('history-cancelled');
         const params = new URLSearchParams({ from, to });
         if (cursor) params.set('cursor', cursor);
         if (snapshot) params.set('snapshot', snapshot);
+        // Stay below the history API's 90 requests/minute while reading a full
+        // day's pages. Cancelling the export also cancels this wait.
+        if (lastRequestAt !== null) {
+          await waitForHistoryPage(Math.max(0, PAGE_INTERVAL_MS - (Date.now() - lastRequestAt)), controller.signal);
+        }
+        lastRequestAt = Date.now();
         const page = await boundedHistoryPage(async requestSignal => {
           const session = await getSession();
           const token = session?.data?.session?.access_token;
           if (session?.error || !token || requestSignal.aborted) throw Error('history-sign-in-required');
-          const response = await fetchImpl(`${development ? '' : config.origin}/api/camera-frames/buses/${encodeURIComponent(busId)}/history?${params}`, {
-            headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-            cache: 'no-store', credentials: 'omit', redirect: 'error', signal: requestSignal,
-          });
+          let response;
+          try {
+            response = await fetchImpl(`${development ? '' : config.origin}/api/camera-frames/buses/${encodeURIComponent(busId)}/history?${params}`, {
+              headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+              cache: 'no-store', credentials: 'omit', redirect: 'error', signal: requestSignal,
+            });
+          } catch {
+            if (requestSignal.aborted) throw Error('history-unavailable');
+            throw Error('history-network-unavailable');
+          }
           if (!response.ok) throw Error([401, 403].includes(response.status) ? 'history-sign-in-required'
             : response.status === 404 ? 'history-route-unavailable'
               : response.status === 429 ? 'history-rate-limited' : 'history-unavailable');
@@ -115,7 +119,8 @@ export function createConditionHistoryService({ config, development = process.en
               text += decoder.decode(part.value, { stream: true }); } text += decoder.decode(); }
             finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
           } else { text = await response.text(); if (text.length > 2000000) throw Error('invalid-history-response'); }
-          return JSON.parse(text);
+          try { return JSON.parse(text); }
+          catch { throw Error('invalid-history-response'); }
         }, controller.signal);
         if (page?.ok !== true || page.busId !== busId || page.from !== from || page.to !== to || !utc(page.snapshot)
             || snapshot && snapshot !== page.snapshot || !Array.isArray(page.frames) || page.frames.length > 500
@@ -136,9 +141,19 @@ export function createConditionHistoryService({ config, development = process.en
       } while (cursor);
       if (controller.signal.aborted) throw Error('history-cancelled');
       if (!frames.length) throw Error('history-empty');
-      return buildConditionHistoryCsv({ frames, busId, busLabel, from, to, snapshot, now });
+      return buildConditionHistoryCsv({ frames, busId, busLabel, from, to, snapshot, includeDetails, now });
     } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
   } };
+}
+
+async function waitForHistoryPage(delayMs, signal) {
+  if (signal.aborted) throw Error('history-cancelled');
+  if (!delayMs) return;
+  await new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); reject(Error('history-cancelled')); };
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, delayMs);
+    signal.addEventListener('abort', abort, { once: true });
+  });
 }
 
 async function boundedHistoryPage(work, signal) {

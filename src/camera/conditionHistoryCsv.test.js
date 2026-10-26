@@ -24,17 +24,38 @@ test('Philippine trip inputs handle midnight and reject invalid dates/reversed/o
     ['2026-10-23T12:00','2026-10-23T00:00'], ['2026-01-01T00:00','2026-10-23T12:00']]) expect(() => conditionPeriod(...period)).toThrow();
 });
 
-test('exports historical captures, all six gauges, true zeroes and blank uncertain values without images', () => {
+test('exports one chronological row per historical capture, six labelled values, true zeroes and blank uncertain readings', () => {
   const frame = fixture(), original = JSON.stringify(frame);
   const result = buildConditionHistoryCsv({ ...request(), frames: [frame, fixture('trip:2')], snapshot: range.to });
-  expect(result.rows).toBe(12); expect(result.captures).toBe(2);
-  expect(result.csv.trim().split('\r\n')).toHaveLength(13);
-  expect(result.csv).toContain('"2026-10-23T01:02:03.000Z","2026-10-23T09:02:03+08:00"');
-  expect(result.csv).toContain('"detected","0","%","92","0"');
-  expect(result.csv).toContain('"Rear air pressure","uncertain","","kg/cm2","",""');
+  expect(result.rows).toBe(2); expect(result.captures).toBe(2); expect(result.readingCount).toBe(12);
+  expect(result.csv.trim().split('\r\n')).toHaveLength(3);
+  expect(result.csv).toContain('"2026-10-23","09:02:03 AM PHT","BUS 159","Pi2 (GPS-002)"');
+  expect(result.csv).toContain('"0","0","0","","0","0","5"');
+  expect(result.csv).not.toMatch(/Uncertain|Not verified|Physical accuracy/);
+  expect(result.csv).not.toMatch(/trip:1|test-version|captured_at_utc/);
   expect(result.csv).not.toMatch(/base64|Bearer|image\/jpeg/);
   expect(result.filename).toMatch(/^centrabus-BUS-159-condition-.*\.csv$/);
   expect(JSON.stringify(frame)).toBe(original);
+});
+
+test('a full-day report above the former 20,000 capture limit retains every row', () => {
+  const frames = Array.from({ length: 20001 }, (_, index) => fixture(`day:${index + 1}`));
+  const result = buildConditionHistoryCsv({ ...request(), frames, snapshot: range.to });
+  expect(result.captures).toBe(20001);
+  expect(result.readingCount).toBe(120006);
+  expect(result.csv.trim().split('\r\n')).toHaveLength(20002);
+  expect(result.csv).toContain('"0","0","0","","0","0","5"');
+}, 30000);
+
+test('optional technical columns preserve original provenance and sorting never mutates the source array', () => {
+  const first = fixture('first'), second = { ...fixture('second'), captured_at: '2026-10-23T02:03:04.567Z' };
+  const frames = [second, first], before = JSON.stringify(frames);
+  const result = buildConditionHistoryCsv({ ...request(), frames, includeDetails: true, snapshot: range.to });
+  expect(result.csv).toContain('"Capture ID","Camera ID","GPS device ID","Bus record ID","Captured at (UTC)"');
+  expect(result.csv).toContain('"2026-10-23T01:02:03.000Z","2026-10-23T01:02:04.000Z","2026-10-23T04:00:00.000Z"');
+  expect(result.csv).toContain('"Fuel detection status","Fuel needle angle (deg)","Fuel dial position (%)"');
+  expect(result.csv.indexOf('"first"')).toBeLessThan(result.csv.indexOf('"second"'));
+  expect(JSON.stringify(frames)).toBe(before);
 });
 
 test('neutralizes formula identities and rejects duplicate, cross-bus, outside-period or fabricated readings', () => {
@@ -48,10 +69,13 @@ test('neutralizes formula identities and rejects duplicate, cross-bus, outside-p
 });
 
 test('retrieves every page with one pinned snapshot and original bus/range; development bearer stays on same origin', async () => {
+  const requestedAt = [];
   const fetchImpl = jest.fn().mockResolvedValueOnce(response(page([fixture()], { nextCursor: 'cursor1' })))
     .mockResolvedValueOnce(response(page([fixture('trip:2')])));
-  const progress = jest.fn(), result = await service(fetchImpl).exportCsv(request({ onProgress: progress }));
+  const fetchPage = (...args) => { requestedAt.push(Date.now()); return fetchImpl(...args); };
+  const progress = jest.fn(), result = await service(fetchPage).exportCsv(request({ onProgress: progress }));
   expect(result.captures).toBe(2); expect(progress.mock.calls).toEqual([[1],[2]]);
+  expect(requestedAt[1] - requestedAt[0]).toBeGreaterThanOrEqual(750);
   const [url, options] = fetchImpl.mock.calls[1];
   expect(url).toMatch(/^\/api\/camera-frames\/buses\/test-bus\/history\?/);
   const params = new URL(url, 'http://localhost').searchParams;
@@ -64,6 +88,16 @@ test('production targets only configured HTTPS backend, not the laptop proxy', a
   await service(fetchImpl, { development: false }).exportCsv(request());
   expect(fetchImpl.mock.calls[0][0]).toMatch(/^https:\/\/api.example.test\/api\/camera-frames\//);
   expect(service(fetchImpl, { development: false, config: { configured: true, origin: 'http://192.168.1.2:5000' } }).enabled).toBe(false);
+});
+
+test('technical-detail choice survives paginated retrieval without changing backend filters or adding writes', async () => {
+  const fetchImpl = jest.fn(async () => response(page()));
+  const result = await service(fetchImpl).exportCsv(request({ includeDetails: true }));
+  expect(result.csv).toContain('"Captured at (UTC)"');
+  expect(result.csv).toContain('"trip:1"');
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(fetchImpl.mock.calls[0][1].method).toBeUndefined();
+  expect(fetchImpl.mock.calls[0][0]).not.toContain('includeDetails');
 });
 
 test.each([[404, 'history-route-unavailable'], [429, 'history-rate-limited'], [503, 'history-unavailable'],
@@ -88,4 +122,13 @@ test('abort before request does not fetch or export, and missing authorization f
   expect(fetchImpl).not.toHaveBeenCalled();
   await expect(service(fetchImpl, { getSession: async () => ({ data: {} }) }).exportCsv(request())).rejects.toThrow('history-sign-in-required');
   expect(fetchImpl).not.toHaveBeenCalled();
+});
+
+test('cancelling while waiting between pages prevents further reads and partial CSV', async () => {
+  const controller = new AbortController();
+  const fetchImpl = jest.fn(async () => response(page([fixture()], { nextCursor: 'cursor1' })));
+  const exporting = service(fetchImpl).exportCsv(request({ signal: controller.signal,
+    onProgress: () => setTimeout(() => controller.abort(), 10) }));
+  await expect(exporting).rejects.toThrow('history-cancelled');
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
 });

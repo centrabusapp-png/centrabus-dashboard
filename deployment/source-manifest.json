@@ -1,6 +1,6 @@
 {
   "schema": "centrabus-dashboard-source-v1",
-  "digest": "844684c57a6c8e3a78234f301aeea036d77933699dec75248d6d99aedd80bbc8",
+  "digest": "ae02ae6ff8a299dd609624deac602504606094c55cd30ffa99d6af4d8a87b88c",
   "files": [
     {
       "path": ".githooks/pre-push",
@@ -31,6 +31,11 @@
       "path": "cameraFrameProxy.test.mjs",
       "bytes": 1929,
       "sha256": "65076952a2def5dee68d38cef2b1651b81740abf2cefe93de5b280fec160bbeb"
+    },
+    {
+      "path": "deployment/condition-history-export.md",
+      "bytes": 1115,
+      "sha256": "38b7c6a31c0e10705055d72d54dc48ec39f593a78e4ba8c50f6ef17b75602621"
     },
     {
       "path": "deployment/launch-profile.json",
@@ -258,6 +263,16 @@
       "sha256": "c5ead843f5170373ca1e339b2d197c9c602f09ea3f82c5d4df15a7cd47d407d4"
     },
     {
+      "path": "src/camera/cameraCsvFormat.js",
+      "bytes": 2784,
+      "sha256": "4d2a65ef343abdc729ca35e6cef245ea28e8eb35e63a6b8633980326430ede8c"
+    },
+    {
+      "path": "src/camera/cameraCsvFormat.test.js",
+      "bytes": 3692,
+      "sha256": "99a995cbe9a64c92174629fac23cd50bc28d1eca63a92be51da72cd172a5e021"
+    },
+    {
       "path": "src/camera/cameraDialGeometry.js",
       "bytes": 1114,
       "sha256": "defedfc49b0eacb19b33002e135160d0254616552867b13bc78e557115257310"
@@ -374,13 +389,13 @@
     },
     {
       "path": "src/camera/conditionHistoryCsv.js",
-      "bytes": 10545,
-      "sha256": "a11db774c2883c37ca0b753e625bb3340a18bdbd0db774eca5a6cdb8660ee3d8"
+      "bytes": 11131,
+      "sha256": "df1aa636a3543b1e639a53b4f6231ffb360f56f37f7b19cc89ece4bf98a8858e"
     },
     {
       "path": "src/camera/conditionHistoryCsv.test.js",
-      "bytes": 7056,
-      "sha256": "8125b97d18421fe5ee39a9179956e07173003d83924c129ac4d5b44fb8570da2"
+      "bytes": 9800,
+      "sha256": "aed1b6c0572d3c4bfe6348f3f3c074748df441631a261fcb1a2b5bfa5a1f0a4e"
     },
     {
       "path": "src/camera/ConditionHistoryExport.jsx",
@@ -716,6 +731,16 @@
       "path": "src/useLiveGps.test.js",
       "bytes": 21229,
       "sha256": "8560f773c8808f2e5418c7f9651676f34a4fdaad30a4ec29b999274ae2bd3e66"
+    },
+    {
+      "path": "src/utils/csvFormat.js",
+      "bytes": 918,
+      "sha256": "4ea2def86eff901a34826fd46daf9071f59bf2d38557a073e1fc3c7ce8c8853c"
+    },
+    {
+      "path": "src/utils/csvFormat.test.js",
+      "bytes": 741,
+      "sha256": "af85b9b3d8a1a18c89452180c03a893360cf90950503340cf790fe1bc7c314dd"
     },
     {
       "path": "src/VehicleConditionPage.css",
