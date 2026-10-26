@@ -1,6 +1,6 @@
 {
   "schema": "centrabus-dashboard-source-v1",
-  "digest": "1bdcf365573c0fff3a290928dc249ae2898dac477cbb06b52d1800c0dd47f9a8",
+  "digest": "2072f8cbfcc1f4a3fbc9c85f5f12db1cdac9b20e972c413215eb9db04fa23209",
   "files": [
     {
       "path": ".env.example",
@@ -209,8 +209,8 @@
     },
     {
       "path": "src/App.jsx",
-      "bytes": 266966,
-      "sha256": "5481a32b38f966ecd01a104e9a7f440d0c322f37949d1abb2ad460790a45fb93"
+      "bytes": 266874,
+      "sha256": "9751c36aee4d1715f20429f2687d2d7f8a50b508b604f4e03a4e2d147b81a531"
     },
     {
       "path": "src/App.test.js",
