@@ -678,17 +678,12 @@ body {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-width: none;
   }
 
   .overview-details-scroll::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .overview-details-scroll::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: #cbd5e1;
+    display: none;
+    width: 0;
   }
 
   .overview-empty-state-card {
@@ -696,6 +691,15 @@ body {
     min-height: 100%;
     align-items: center;
   }
+}
+
+html:has(.overview-map-details-layout) {
+  scrollbar-width: none;
+}
+
+html:has(.overview-map-details-layout)::-webkit-scrollbar {
+  display: none;
+  width: 0;
 }
 
 @media (max-width: 1023px) {

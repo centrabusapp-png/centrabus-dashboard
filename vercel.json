@@ -76,19 +76,11 @@
       "destination": "/index.html"
     },
     {
-      "source": "/live-camera",
-      "destination": "/index.html"
-    },
-    {
       "source": "/records",
       "destination": "/index.html"
     },
     {
       "source": "/settings",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/system-health",
       "destination": "/index.html"
     },
     {

@@ -13,7 +13,7 @@ test('compact report has one labelled row per capture with the six values in phy
   const result = cameraCsvTable({ frames: [frame], busLabel: 'BUS 04', now: NOW });
   expect(result.columns).toEqual(CAMERA_CSV_COLUMNS);
   expect(result.columns).toHaveLength(11);
-  expect(result.rows).toEqual([['2026-10-25', '00:00:00.123', 'BUS 04', 'Pi1 (GPS-001)',
+  expect(result.rows).toEqual([['2026-10-25', '12:00:00 AM PHT', 'BUS 04', 'Pi1 (GPS-001)',
     0, 0, 0, null, 0, 0, 5]]);
   expect(result.csv).not.toMatch(/Uncertain|Not verified|Physical accuracy|Missing or uncertain/);
   expect(result.csv.startsWith('\uFEFF"Date (Philippines)"')).toBe(true);

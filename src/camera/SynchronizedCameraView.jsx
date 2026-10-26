@@ -181,8 +181,7 @@ function DeviceFrames({ device, service, clock, decode = decodePreview, bus, his
     <section ref={panel} data-device-id={device.deviceId} data-capture-id={frame?.capture_id} aria-label={`${device.shortName} vehicle condition`} className="camera-condition-panel">
       <header className="camera-condition-heading"><div><h2>Vehicle condition monitoring</h2><p className="camera-section-detail">{device.deviceId}</p></div>
         <div className="camera-export-tools">{tripExportReady
-          ? <><ConditionHistoryExport bus={bus} service={historyService} clock={clock} buttonLabel="Export CSV" />
-            <span>Choose trip period</span></>
+          ? <ConditionHistoryExport bus={bus} service={historyService} clock={clock} buttonLabel="Today's CSV" />
           : <><button type="button" onClick={exportCsv} disabled={!csvReady} title="Download the six readings from this fresh capture as a CSV file."><Download size={14} aria-hidden="true" />Export CSV</button>
             <span>{csvReady ? 'Ready to export' : 'No fresh readings'}</span></>}</div></header>
       <div className="camera-condition-body"><div role="status" className="camera-condition-source"><strong title={status}>{conditionStatus}</strong></div>

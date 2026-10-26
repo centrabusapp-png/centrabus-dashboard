@@ -1,6 +1,6 @@
 {
   "schema": "centrabus-dashboard-source-v1",
-  "digest": "d25914679ebe5e96f9fa2aa910f9d3d8f1d6b969439c36a8f466a562a116b6f4",
+  "digest": "1bdcf365573c0fff3a290928dc249ae2898dac477cbb06b52d1800c0dd47f9a8",
   "files": [
     {
       "path": ".env.example",
@@ -54,8 +54,8 @@
     },
     {
       "path": "LAUNCHING.md",
-      "bytes": 6023,
-      "sha256": "2bd35540f58e3b41eaa2d4fb09319571fed047d0bb32f5115b43f998f79d1e82"
+      "bytes": 6670,
+      "sha256": "fe33229eeb3b95389213dbc018e2400c47e8feee31966e41d7d9b9691519b87f"
     },
     {
       "path": "localCameraCapture.mjs",
@@ -209,13 +209,13 @@
     },
     {
       "path": "src/App.jsx",
-      "bytes": 265711,
-      "sha256": "fdbb3fb2af1a2b7b1c53da01b61f54011f1de0dc83fd3e9c50d9b66b123b2a6d"
+      "bytes": 266966,
+      "sha256": "5481a32b38f966ecd01a104e9a7f440d0c322f37949d1abb2ad460790a45fb93"
     },
     {
       "path": "src/App.test.js",
-      "bytes": 163549,
-      "sha256": "3b7d9f59f7aa9506e30970c73617f1d772df0f2c7248c4bfc37941e7f248b505"
+      "bytes": 164526,
+      "sha256": "8952d682889be308492e50c259ff052782247ee704944345cc81c15f0d5e53c8"
     },
     {
       "path": "src/assetCachePolicy.js",
@@ -264,13 +264,13 @@
     },
     {
       "path": "src/camera/cameraCsvFormat.js",
-      "bytes": 3014,
-      "sha256": "aa7e91eea1136cbfd7366e7b3bec765ac635eeb1292bee931bdc3a5d7902d15b"
+      "bytes": 2784,
+      "sha256": "4d2a65ef343abdc729ca35e6cef245ea28e8eb35e63a6b8633980326430ede8c"
     },
     {
       "path": "src/camera/cameraCsvFormat.test.js",
-      "bytes": 3689,
-      "sha256": "076486a23cf60b516d67a7447b954b0ca849acc44afe9b93d692aa3fee55652e"
+      "bytes": 3692,
+      "sha256": "99a995cbe9a64c92174629fac23cd50bc28d1eca63a92be51da72cd172a5e021"
     },
     {
       "path": "src/camera/cameraDialGeometry.js",
@@ -394,18 +394,18 @@
     },
     {
       "path": "src/camera/conditionHistoryCsv.test.js",
-      "bytes": 8605,
-      "sha256": "bf1262ea0bff23efa72e89766cbb0af211b4b2f9d1906be5427313ad98de5db5"
+      "bytes": 8608,
+      "sha256": "d9cf57af39fc56768bac55b520781c3ea71bfb2500410d05f8838a1b0659525f"
     },
     {
       "path": "src/camera/ConditionHistoryExport.jsx",
-      "bytes": 5776,
-      "sha256": "e23cacd14cd44699a805dc75eb8e27469cbf04737198b9ca3c76eac8623af82b"
+      "bytes": 7956,
+      "sha256": "450f50a87f7644c9abf565481a9acc41d89d8c7ec9e61f5c575e52c0e5327f63"
     },
     {
       "path": "src/camera/ConditionHistoryExport.test.jsx",
-      "bytes": 5709,
-      "sha256": "68cc383d7c2f0b7a5e64c40f4869518ac0ee45784a60d9b0c2a9ad6788905b04"
+      "bytes": 5841,
+      "sha256": "fe51b152152b7e16c074162963ba8f91d2a9a351059964c62815042481350b30"
     },
     {
       "path": "src/camera/FastLivePreview.jsx",
@@ -416,6 +416,16 @@
       "path": "src/camera/FastLivePreview.test.jsx",
       "bytes": 6819,
       "sha256": "2ad91250e2f3ffd88eb2876680ac1827a2bfcd4939e5a3422e5907eb3fa092df"
+    },
+    {
+      "path": "src/camera/liveCameraAvailability.js",
+      "bytes": 367,
+      "sha256": "ef3c5824f5832a5d2d850c60e815c5c3d7aae6f101d9334a2d16ca60beb02cb9"
+    },
+    {
+      "path": "src/camera/liveCameraAvailability.test.js",
+      "bytes": 579,
+      "sha256": "10d8859a66f7ed1ede44ec03f4f48730164c6f3192c8cb279b641b7c01d09cae"
     },
     {
       "path": "src/camera/liveCameraGaugeModel.js",
@@ -469,8 +479,8 @@
     },
     {
       "path": "src/camera/SynchronizedCameraView.jsx",
-      "bytes": 16641,
-      "sha256": "3f3db835aefb4d2060462f7a12cd9bc7e9b02f72d51fabe04906c6e3168349a3"
+      "bytes": 16593,
+      "sha256": "86570fc3a36783036afcd0886c7980f5548127a05ee3bd6e2aac903badeb0425"
     },
     {
       "path": "src/camera/SynchronizedCameraView.test.jsx",
@@ -518,6 +528,16 @@
       "sha256": "7a96d52788bf681fb9acb17fa62550f96b9f6ca9e54faeb0c1c16efe762f3f79"
     },
     {
+      "path": "src/DeviceHealthPanel.jsx",
+      "bytes": 3254,
+      "sha256": "b722fd4d7101fbec5ead46bc1513f5bf1936cedc86994919800923a61c620557"
+    },
+    {
+      "path": "src/DeviceHealthPanel.test.jsx",
+      "bytes": 1889,
+      "sha256": "9f394c2596462c623efcea67b3278ce52887eae0d9ce29403d9bb6742075e2a6"
+    },
+    {
       "path": "src/gpsLatency.js",
       "bytes": 630,
       "sha256": "d0a81eb44b9936a65de9ce9d62d480cece649a80c4c44ed1ee3b9109260ba3d2"
@@ -539,8 +559,8 @@
     },
     {
       "path": "src/index.css",
-      "bytes": 15439,
-      "sha256": "431295f1c8a713c359f2c4dc3fdacaedc85cf5186d4b28093a822f0443fe3ce3"
+      "bytes": 15465,
+      "sha256": "e49f5cf466397752f54241ff357730f9f7ce48365be298aa2da33ffc38b8e81f"
     },
     {
       "path": "src/index.js",
@@ -579,13 +599,13 @@
     },
     {
       "path": "src/records/gpsHistory.js",
-      "bytes": 15144,
-      "sha256": "c8e4157f676f1425b96b77ee69860f336fcb5f7b34cf62425d5cd6d251a61ca6"
+      "bytes": 15465,
+      "sha256": "dd57bfc3b3b99df30779d81aee77ad71dd6b49ac70100f146f50e6279b4fc9a9"
     },
     {
       "path": "src/records/gpsHistory.test.js",
-      "bytes": 12607,
-      "sha256": "a71e223e5c2b4c6595fa2befd9a038052c642655a4934d0d47d08f2fac54fe05"
+      "bytes": 12666,
+      "sha256": "245be7d342f0934473a5fd680ddfa0019d8e7e546b0daea7f5186cc46bb13802"
     },
     {
       "path": "src/records/GpsHistoryExplorer.jsx",
@@ -634,8 +654,8 @@
     },
     {
       "path": "src/settings/DeviceSetup.jsx",
-      "bytes": 12747,
-      "sha256": "7e424de844945eb55421d8dc4239054ad38886e58f50e65a155cd570889a2375"
+      "bytes": 13148,
+      "sha256": "22d8344e5d4236027d8315a2c0cbb930a8574af06cc73cc7b984ee1d4c55e28f"
     },
     {
       "path": "src/settings/DeviceSetup.test.jsx",
@@ -753,9 +773,19 @@
       "sha256": "8560f773c8808f2e5418c7f9651676f34a4fdaad30a4ec29b999274ae2bd3e66"
     },
     {
+      "path": "src/utils/csvFormat.js",
+      "bytes": 918,
+      "sha256": "4ea2def86eff901a34826fd46daf9071f59bf2d38557a073e1fc3c7ce8c8853c"
+    },
+    {
+      "path": "src/utils/csvFormat.test.js",
+      "bytes": 741,
+      "sha256": "af85b9b3d8a1a18c89452180c03a893360cf90950503340cf790fe1bc7c314dd"
+    },
+    {
       "path": "src/VehicleConditionPage.css",
-      "bytes": 10448,
-      "sha256": "d2af257122f207f7fd950c0c2254e21633fd66a072da965943a66fd1bee0e8a5"
+      "bytes": 11007,
+      "sha256": "7e42431294850f361c4342385b9ab4e5ad971c1dcfe193375143290453952249"
     },
     {
       "path": "tailwind.config.cjs",
@@ -764,8 +794,8 @@
     },
     {
       "path": "vercel.json",
-      "bytes": 2283,
-      "sha256": "a2092b461edbb1b5f1f87b46ff3f48f6d5841dd6f751397517bf61ca3b48973a"
+      "bytes": 2121,
+      "sha256": "b975dcf83878e478dfd2ac1e8c74ef67dc103a28f18213945d3f08503765270b"
     },
     {
       "path": "vite.config.mjs",

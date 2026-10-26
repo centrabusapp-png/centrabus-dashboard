@@ -15,6 +15,7 @@ import App, {
   getGpsSampleTimestamp,
   appendGpsSpeedSample,
   deriveBackendHealthStatus,
+  deriveDashboardConnectivityStatus,
   deriveRealtimeHealth,
   deriveSystemHealth,
   SystemHealthCard,
@@ -1064,6 +1065,29 @@ test('one initial backend polling failure is degraded rather than immediately of
     consecutiveFailures: 1,
     hasAttempted: true,
   }, 100_000).status).toBe('DEGRADED');
+});
+
+test('header connectivity reports dashboard internet access separately from stale bus GPS', () => {
+  const nowMs = 100_000;
+  const health = systemHealthAt(nowMs, {
+    gpsByBusId: { 'bus-a': { gpsUpdatedAt: nowMs - 45_000, updatedAt: nowMs - 45_000, deviceUpdatedAt: nowMs - 1_000 } },
+  });
+
+  expect(health.gps.status).toBe('STALE');
+  expect(health.backend.status).toBe('ONLINE');
+  expect(deriveDashboardConnectivityStatus(health.backend)).toMatchObject({
+    label: 'Internet connected',
+    tone: 'healthy',
+  });
+});
+
+test.each([
+  ['DEGRADED', 'Internet connection unstable', 'degraded'],
+  ['OFFLINE', 'Cloud unreachable', 'offline'],
+  ['NOT CONFIGURED', 'Backend not configured', 'neutral'],
+  ['CHECKING', 'Checking internet', 'neutral'],
+])('dashboard connectivity presents backend status %s accurately', (status, label, tone) => {
+  expect(deriveDashboardConnectivityStatus({ status })).toMatchObject({ label, tone });
 });
 
 test('system health shows a channel error separately from fresh GPS and a healthy backend', () => {

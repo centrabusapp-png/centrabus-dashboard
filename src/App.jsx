@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { rawGpsSpeed, rawGpsMotion } from './gpsMotion';
+import DeviceHealthPanel from './DeviceHealthPanel';
 import {
   Activity,
   ArrowRight,
@@ -44,6 +45,7 @@ import { createDevicePresenceService } from './settings/devicePresenceService';
 import CameraGaugePanel from './camera/CameraGaugePanel';
 import LiveCameraView from './camera/LiveCameraView';
 import { createCameraFrameService } from './camera/cameraFrameService';
+import { liveCameraAvailable } from './camera/liveCameraAvailability';
 import CameraFrameGaugePanel from './camera/CameraFrameGaugePanel';
 import { cameraReadingsFeatureEnabled } from './camera/cameraReadings';
 import { AnimatedCameraGauge } from './camera/LiveCameraGauges';
@@ -71,6 +73,7 @@ const REMOTE_WIFI_SERVICE = createRemoteWifiService({ config: BACKEND_CONFIG, ge
 const CAMERA_FRAME_SERVICE = createCameraFrameService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession(),
   enabled: process.env.VITE_CAMERA_FRAMES_ENABLED === 'true' && (process.env.NODE_ENV !== 'production' || BACKEND_CONFIG.cloudCameraEnabled),
   previewOnly: process.env.VITE_CAMERA_PREVIEW_ONLY === 'true' });
+const LIVE_CAMERA_AVAILABLE = liveCameraAvailable(process.env.NODE_ENV, CAMERA_FRAME_SERVICE.enabled);
 const CONDITION_HISTORY_SERVICE = createConditionHistoryService({ config: BACKEND_CONFIG, getSession: () => supabase.auth.getSession() });
 const CENTRABUS_LOCKED_LOGO_SRC = '/centrabus-locked-logo.png';
 const loadGpsHistoryExplorer = () => import('./records/GpsHistoryExplorer');
@@ -766,6 +769,35 @@ export function deriveBackendHealthStatus(backendPoll, nowMs = Date.now()) {
   ) return createHealthSignal('OFFLINE', lastSuccessAt, nowMs);
   if (consecutiveFailures > 0 || lastSuccessAt == null) return createHealthSignal('DEGRADED', lastSuccessAt, nowMs);
   return createHealthSignal('ONLINE', lastSuccessAt, nowMs);
+}
+
+export function deriveDashboardConnectivityStatus(backendHealth = {}) {
+  const status = backendHealth?.status || 'CHECKING';
+  if (status === 'ONLINE') return {
+    label: 'Internet connected',
+    detail: 'The dashboard can reach its HTTPS backend. Bus GPS freshness is shown separately.',
+    tone: 'healthy',
+  };
+  if (status === 'DEGRADED') return {
+    label: 'Internet connection unstable',
+    detail: 'Recent HTTPS backend checks failed. The network or backend may be unstable.',
+    tone: 'degraded',
+  };
+  if (status === 'OFFLINE') return {
+    label: 'Cloud unreachable',
+    detail: 'The dashboard cannot reach its HTTPS backend. Check internet access and backend status.',
+    tone: 'offline',
+  };
+  if (status === 'NOT CONFIGURED') return {
+    label: 'Backend not configured',
+    detail: 'The dashboard HTTPS backend URL is not configured.',
+    tone: 'neutral',
+  };
+  return {
+    label: 'Checking internet',
+    detail: 'Waiting for the first HTTPS backend health check.',
+    tone: 'neutral',
+  };
 }
 
 export function deriveRealtimeHealth(realtime = {}, nowMs = Date.now()) {
@@ -2279,6 +2311,7 @@ function useHealthTransitionDiagnostics(systemHealth) {
   const previousStatuses = useRef({});
 
   useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
     const currentStatuses = {
       GPS: systemHealth.gps.status,
       Pi: systemHealth.raspberryPi.status,
@@ -2293,7 +2326,9 @@ function useHealthTransitionDiagnostics(systemHealth) {
   }, [systemHealth.gps.status, systemHealth.raspberryPi.status, systemHealth.backend.status, systemHealth.realtime.status]);
 }
 
-export function SystemHealthCard({ health, nowMs }) {
+export function SystemHealthCard({ health, nowMs, gpsRecords = [] }) {
+  const [deviceTests] = useState(() => typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('deviceTest') === '1');
   const rows = [
     ['GPS Data', health.gps],
     ['GPS Device Activity', health.raspberryPi],
@@ -2337,6 +2372,7 @@ export function SystemHealthCard({ health, nowMs }) {
         <div className="text-[10px] font-extrabold uppercase tracking-[0.08em] opacity-75">Overall</div>
         <div className="mt-0.5 flex items-center gap-2 text-sm font-extrabold"><span className={`h-2.5 w-2.5 rounded-full ${toneClasses[health.overall.tone].dot}`} />{health.overall.label}</div>
       </div>
+      <DeviceHealthPanel enabled={deviceTests} gpsRecords={gpsRecords} service={CAMERA_FRAME_SERVICE} nowMs={nowMs} />
     </section>
   );
 }
@@ -2839,7 +2875,6 @@ export function MonitoringOverviewFleet({
   onSelectBusId,
   onNavigate,
   nowMs,
-  systemHealth = deriveSystemHealth({ nowMs }),
   includeGpsDiagnosticsForTest = true,
 }) {
   // Resolve against the live fleet on every render; never substitute another bus.
@@ -2917,7 +2952,7 @@ export function MonitoringOverviewFleet({
         />
       </div>
       <aside aria-label="Selected vehicle details" className="overview-details-column grid min-w-0 content-start gap-4">
-        <SystemHealthCard health={systemHealth} nowMs={nowMs} />
+        {process.env.NODE_ENV !== 'production' && <SystemHealthCard health={deriveSystemHealth({ nowMs })} nowMs={nowMs} gpsRecords={buses.map(item => item.gps).filter(Boolean)} />}
         <div className="overview-details-scroll min-h-0 lg:overflow-y-auto lg:overscroll-contain" data-testid="overview-details-scroll">
         {!bus && overlapBuses.length > 1 && (
           <OverlappingBusPicker buses={overlapBuses} onSelect={selectOverlappingBus} />
@@ -2941,7 +2976,7 @@ export function MonitoringOverviewFleet({
       </aside>
       </div>
       {/* TESTING/VALIDATION UI — REMOVE AFTER DUAL-DEVICE/DRIVE ACCEPTANCE */}
-      {includeGpsDiagnosticsForTest && <GpsDiagnosticsPanel bus={bus} nowMs={nowMs} />}
+      {includeGpsDiagnosticsForTest && process.env.NODE_ENV !== 'production' && <GpsDiagnosticsPanel bus={bus} nowMs={nowMs} />}
     </>
   );
 }
@@ -2998,7 +3033,7 @@ export function VehicleConditionSummary({ bus: suppliedBus, pageContext = 'dashb
         <div><h2>Gauge readings</h2></div>
         <div className="condition-page-actions">
           {hasConditionData && <StatusBadge value={overallCondition} />}
-          <button type="button" onClick={() => onNavigate('live-camera')}><Camera size={14} />Live camera</button>
+          {liveCameraAvailable(process.env.NODE_ENV, frameService?.enabled) && <button type="button" onClick={() => onNavigate('live-camera')}><Camera size={14} />Live camera</button>}
           <button type="button" onClick={() => onNavigate({ page: 'records', bus: bus.id, tab: 'condition-history' })}><FileClock size={14} />History</button>
           <ConditionHistoryExport key={bus.id} bus={bus} service={historyService} />
         </div>
@@ -4127,7 +4162,7 @@ function ActiveAlertsPanel({ activeAlerts, buses, onAcknowledge, onNavigate }) {
 const navigationItems = [
   ['dashboard', 'Dashboard', LayoutDashboard],
   ['map', 'Live Map', Map],
-  ['live-camera', 'Live Camera View', Camera],
+  ...(LIVE_CAMERA_AVAILABLE ? [['live-camera', 'Live Camera View', Camera]] : []),
   ['vehicle-condition', 'Vehicle Condition', Activity],
   ['alerts', 'Alert Center', Bell],
   ['records', 'Records', FileClock],
@@ -4616,8 +4651,8 @@ export function SettingsPage({ user, onLogout, buses, busesStatus, gpsByBusId, g
 
   return (
     <section className="space-y-4">
-      <DeviceSetup authorized={Boolean(user?.id)} wifiService={WIFI_STATUS_SERVICE} gpsByBusId={gpsByBusId}
-        gpsRealtime={gpsRealtime} backendPoll={backendPoll} nowMs={gpsNowMs} busesStatus={busesStatus} presenceService={DEVICE_PRESENCE_SERVICE} remoteWifiService={REMOTE_WIFI_SERVICE} />
+      {process.env.NODE_ENV !== 'production' && <DeviceSetup authorized={Boolean(user?.id)} wifiService={WIFI_STATUS_SERVICE} gpsByBusId={gpsByBusId}
+        gpsRealtime={gpsRealtime} backendPoll={backendPoll} nowMs={gpsNowMs} busesStatus={busesStatus} presenceService={DEVICE_PRESENCE_SERVICE} remoteWifiService={REMOTE_WIFI_SERVICE} />}
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]">
         <section className="rounded-[24px] border bg-white p-5 shadow-sm">
           <h2 className="text-[15px] font-extrabold">Administrator Profile</h2>
@@ -4852,7 +4887,8 @@ export function VehicleConditionPage({ buses, fleetStatus, selectedBus, selected
 }
 
 export function useUrlState() {
-  const pathPage = { '/live-map': 'map', '/live-camera': 'live-camera', '/alerts': 'alerts', '/vehicle-condition': 'vehicle-condition' };
+  const pathPage = { '/live-map': 'map', '/alerts': 'alerts', '/vehicle-condition': 'vehicle-condition',
+    ...(LIVE_CAMERA_AVAILABLE ? { '/live-camera': 'live-camera' } : {}) };
   const [urlParams, setUrlParams] = useState(() => new URLSearchParams(window.location.search));
 
   useEffect(() => {
@@ -4873,8 +4909,11 @@ export function useUrlState() {
         if (newParams.get(key) !== String(value)) { newParams.set(key, value); changed = true; }
       }
     }
-    const nextPage = params.page || newParams.get('page') || pathPage[window.location.pathname] || 'dashboard';
-    const nextPath = { map: '/live-map', 'live-camera': '/live-camera', alerts: '/alerts', 'vehicle-condition': '/vehicle-condition' }[nextPage] || '/';
+    const requestedPage = params.page || newParams.get('page') || pathPage[window.location.pathname] || 'dashboard';
+    const nextPage = !LIVE_CAMERA_AVAILABLE && requestedPage === 'live-camera' ? 'dashboard' : requestedPage;
+    const nextPath = { map: '/live-map', alerts: '/alerts', 'vehicle-condition': '/vehicle-condition',
+      ...(LIVE_CAMERA_AVAILABLE ? { 'live-camera': '/live-camera' } : {}) }[nextPage] || '/';
+    if (nextPage === 'dashboard' && newParams.get('page') === 'live-camera') { newParams.delete('page'); changed = true; }
     if (nextPath !== '/' && newParams.has('page')) { newParams.delete('page'); changed = true; }
     if (changed || window.location.pathname !== nextPath) {
       const qs = newParams.toString();
@@ -4888,7 +4927,8 @@ export function useUrlState() {
     }
   };
 
-  const page = pathPage[window.location.pathname] || (urlParams.get('page') || 'dashboard');
+  const requestedPage = pathPage[window.location.pathname] || (urlParams.get('page') || 'dashboard');
+  const page = !LIVE_CAMERA_AVAILABLE && requestedPage === 'live-camera' ? 'dashboard' : requestedPage;
   const busId = urlParams.get('bus');
   const tab = urlParams.get('tab') || 'Overview';
 
@@ -4919,16 +4959,10 @@ export function AuthorizedDashboard({ user }) {
     () => telemetryBuses.map((bus) => ({ ...bus, gps: gpsByBusId[bus.id] || null })),
     [telemetryBuses, gpsByBusId],
   );
-  const connectivityStatus = useMemo(() => {
-    if (busesStatus === 'loading') return { label: 'Checking connectivity', detail: 'Loading fleet connectivity', tone: 'neutral' };
-    if (busesWithGps.length === 0) return { label: 'No buses', detail: 'No registered buses to monitor', tone: 'neutral' };
-    const gpsStates = busesWithGps.map((bus) => getGpsFreshness(bus, gpsNowMs).status);
-    const onlineCount = gpsStates.filter((status) => status === 'Online').length;
-    const delayedCount = gpsStates.filter((status) => status === 'Delayed').length;
-    if (onlineCount === busesWithGps.length) return { label: 'All connected', detail: `${onlineCount} of ${busesWithGps.length} buses reporting live GPS`, tone: 'healthy' };
-    if (onlineCount + delayedCount > 0) return { label: 'Connectivity degraded', detail: `${onlineCount} online, ${delayedCount} delayed, ${busesWithGps.length - onlineCount - delayedCount} unavailable`, tone: 'degraded' };
-    return { label: 'GPS offline', detail: `No live GPS from ${busesWithGps.length} registered bus${busesWithGps.length === 1 ? '' : 'es'}`, tone: 'offline' };
-  }, [busesStatus, busesWithGps, gpsNowMs]);
+  const connectivityStatus = useMemo(
+    () => deriveDashboardConnectivityStatus(systemHealth.backend),
+    [systemHealth.backend],
+  );
   const synchronizedSamples = useMemo(() => buildSynchronizedSampleData(telemetryBuses), [telemetryBuses]);
   const { trips } = synchronizedSamples;
   const [alertChanges, setAlertChanges] = useState({});
@@ -4967,17 +5001,17 @@ export function AuthorizedDashboard({ user }) {
   const pageHeaders = {
     dashboard: { title: 'Monitoring Overview', subtitle: 'Live fleet, route, vehicle condition, and system status' },
     map: { title: 'Live Map Monitoring', subtitle: 'Real-time GPS tracking and route compliance' },
-    'live-camera': { title: 'Live Camera View', subtitle: 'Pi1 and Pi2 dashboard camera monitoring' },
+    ...(LIVE_CAMERA_AVAILABLE ? { 'live-camera': { title: 'Live Camera View', subtitle: 'Pi1 and Pi2 dashboard camera monitoring' } } : {}),
     'vehicle-condition': { title: 'Vehicle Condition Monitoring', subtitle: 'Gauge panel sensor data across the fleet' },
     alerts: { title: 'Alert Center', subtitle: 'Manage vehicle condition, route, and connectivity alerts' },
     records: { title: 'Activity Records', subtitle: 'Event logs and synchronization status' },
-    settings: { title: 'Settings', subtitle: 'Device setup, administrator preferences and notifications' },
+    settings: { title: 'Settings', subtitle: 'Administrator profile, notification preferences, and bus management' },
   };
 
   let pageContent;
   switch (activePage) {
     case 'map': pageContent = <LeafletMapPanel selectedBus={mapSelectedBus} selectedTrip={mapSelectedTrip} onSelect={(b) => setSelectedBusId(b.id)} monitoredBuses={mapBuses} routeSafeRadiusM={ROUTE_DEVIATION_DEFAULT_M} onCenterBus={() => {}} resizeSignal={`${selectedBusId}-${mapStatus}-${mapTripStatus}`} autoCenterKey={`${mapStatus}-${mapTripStatus}`} showDetails nowMs={gpsNowMs} />; break;
-    case 'live-camera': pageContent = <LiveCameraView authorized={Boolean(user?.id)} buses={busesWithGps} frameService={CAMERA_FRAME_SERVICE} historyService={CONDITION_HISTORY_SERVICE} />; break;
+    case 'live-camera': pageContent = LIVE_CAMERA_AVAILABLE ? <LiveCameraView authorized={Boolean(user?.id)} buses={busesWithGps} frameService={CAMERA_FRAME_SERVICE} historyService={CONDITION_HISTORY_SERVICE} /> : null; break;
     case 'vehicle-condition': pageContent = <VehicleConditionPage buses={telemetryBuses} fleetStatus={busesStatus} selectedBus={selectedBus} selectedBusId={selectedBusId} onSelectBus={(b) => setSelectedBusId(b.id)} onNavigate={setActivePage} nowMs={gpsNowMs} />; break;
     case 'alerts': pageContent = <AlertsPage alerts={alerts} buses={telemetryBuses} onUpdateAlert={updateAlert} initialCategory={alertCategory} initialStatus={alertStatus} selectedAlertId={alertId} />; break;
     case 'records': pageContent = <LoadablePanel load={loadGpsHistoryExplorer} loadingLabel="Loading activity records…" buses={telemetryBuses} initialBusId={selectedTab === 'condition-history' ? selectedBusId || '' : ''} />; break;
@@ -4985,7 +5019,7 @@ export function AuthorizedDashboard({ user }) {
     default: pageContent = (
       <>
         <SummaryCards counts={monitoringState} busesLoading={busesStatus !== 'ready'} onNavigate={setActivePage} />
-        <MonitoringOverviewFleet buses={busesWithGps} trips={trips} selectedBusId={selectedBusId} onSelectBusId={setSelectedBusId} onNavigate={setActivePage} nowMs={gpsNowMs} systemHealth={systemHealth} />
+        <MonitoringOverviewFleet buses={busesWithGps} trips={trips} selectedBusId={selectedBusId} onSelectBusId={setSelectedBusId} onNavigate={setActivePage} nowMs={gpsNowMs} />
         <ActiveAlertsPanel buses={telemetryBuses} activeAlerts={activeAlerts} onAcknowledge={(alert) => updateAlert(alert.id, { workflowStatus: 'Acknowledged', acknowledgedBy: user.email || 'Administrator', acknowledgedAt: Date.now() })} onNavigate={setActivePage} />
       </>
     );
@@ -5001,7 +5035,7 @@ export function AuthorizedDashboard({ user }) {
         alertCount={activeAlertCount}
         onLogout={signOutActiveUser}
       />
-      <div className={`main-content dashboard-page dashboard-content flex flex-col gap-5 pb-10 ${activePage === 'dashboard' ? 'overview-wide-shell' : ''} ${activePage === 'live-camera' ? 'camera-monitor-shell' : ''} ${activePage === 'vehicle-condition' ? 'condition-monitor-shell' : ''} ${sidebarOpen ? 'sidebar-expanded' : ''}`}>
+      <div className={`main-content dashboard-page dashboard-content flex flex-col gap-5 pb-10 ${activePage === 'dashboard' ? 'overview-wide-shell' : ''} ${activePage === 'vehicle-condition' ? 'condition-monitor-shell' : ''} ${sidebarOpen ? 'sidebar-expanded' : ''}`}>
         <Header currentTime={currentTime} activePageTitle={pageHeaders[activePage]?.title} activePageSubtitle={pageHeaders[activePage]?.subtitle} alertCount={activeAlertCount} systemHealth={systemHealth} connectivityStatus={connectivityStatus} alerts={alerts} buses={telemetryBuses} onToggleSidebar={() => setSidebarOpen((current) => !current)} onViewAlert={(alert) => navigate({ page: 'alerts', bus: alert.busNumber, alert: alert.id, alertType: getAlertCategory(alert) === 'Route' ? 'route-deviation' : undefined })} user={user} />
         {activePage === 'settings' ? <SettingsPage user={user} onLogout={signOutActiveUser} buses={buses} busesStatus={busesStatus}
           gpsByBusId={gpsByBusId} gpsRealtime={gpsRealtime} backendPoll={backendPoll} gpsNowMs={gpsNowMs} /> : pageContent}

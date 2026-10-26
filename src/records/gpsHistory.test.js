@@ -279,10 +279,10 @@ test('GPS history CSV contains stored values and operator-facing bus labels with
     speed: 35,
     motionStatus: 'MOVING',
   }], [{ id: 'bus-a', plateNumber: 'ABC 234' }]);
-  expect(csv).toContain('Plate / Fleet Label');
-  expect(csv).toContain('captured_at');
-  expect(csv).toContain('"ABC 234","4","sample-4","bus-a","GPS-001"');
-  expect(csv).toContain('"14.095","121.16","","","35"');
+  expect(csv).toContain('"Date (Philippines)","Time (UTC+08:00)","Bus","GPS device"');
+  expect(csv).toContain('"2026-10-04","09:00:00 AM PHT","ABC 234","GPS-001"');
+  expect(csv).toContain('"14.095","121.16","35","MOVING"');
+  expect(csv).not.toContain('Source Record ID');
   expect(csv).not.toContain('interpolated');
   expect(getGpsHistoryBusLabel({ id: 'bus-b', busCode: 'BUS 02' }, 1)).toBe('BUS 02');
 });

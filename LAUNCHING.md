@@ -75,12 +75,22 @@ belong here. `.env.example` is a template, not a credential file. New Vercel
 environment values need a new deployment. Dashboard-level overrides should match
 the checked-in profile; changing the hosting account is outside a local build check.
 
+The detailed System Health and GPS Diagnostics panels and full Device Setup
+area (Wi-Fi, connection checks, and GPS status) are available only in local/test
+builds. The standalone Live Camera View is available to signed-in administrators
+in production only when the approved HTTPS camera-frame feature is enabled; an
+unconfigured or non-HTTPS backend keeps that page hidden. Production Pi network
+setup is handled on each Pi with its assigned pocket Wi-Fi. The compact
+health/status summary in the global header remains in production.
+Production keeps the separate same-capture gauge observations in Dashboard and
+Vehicle Condition; those still depend on the camera frame flags above and on the
+Render backend actually accepting camera frames.
+
 The October 25 Pi2 bench trial passed real GPS/history and signed camera
 transmission. The launch profile now preserves the accepted camera-frame flags
 used in Vercel Production and Preview. This uses the approved HTTPS
-backend and native active-admin auth. Manual production Capture downloads to the
-browser; it cannot invoke the laptop-only disk writer. Invalid/uncertain readings
-remain blank, and physical accuracy is still unverified.
+backend and native active-admin auth. Invalid/uncertain readings remain blank,
+and physical accuracy is still unverified.
 
 ## What readiness does not claim
 

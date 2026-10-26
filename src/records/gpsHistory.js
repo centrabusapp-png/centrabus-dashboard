@@ -1,4 +1,5 @@
-import { rawGpsSpeed, rawGpsMotion } from '../gpsMotion';
+import { rawGpsSpeed, rawGpsMotion } from '../gpsMotion.js';
+import { csvCell, philippineCsvTime } from '../utils/csvFormat.js';
 
 export const GPS_HISTORY_PAGE_SIZE_DEFAULT = 50;
 export const GPS_HISTORY_PAGE_SIZE_OPTIONS = [25, 50, 100];
@@ -354,7 +355,7 @@ export function getGpsHistoryBusLabel(bus, index = 0, deviceId = '') {
   return preferred ? preferred.trim() : `Fleet bus ${index + 1}`;
 }
 
-export function buildGpsHistoryCsv(records = [], buses = []) {
+export function buildGpsHistoryCsv(records = [], buses = [], { includeDetails = false } = {}) {
   const busById = new Map(buses.map((bus, index) => [bus.id, { bus, index }]));
   const fields = [
     ['id', 'Record ID'],
@@ -378,17 +379,18 @@ export function buildGpsHistoryCsv(records = [], buses = []) {
     ['consistency', 'diagnostics.consistency'],
     ['satellitesUsed', 'diagnostics.satellites_used'],
   ];
-  const headings = ['Plate / Fleet Label', ...fields.map(([, heading]) => heading)];
-  const quote = (value) => {
-    const normalized = value && typeof value === 'object' ? JSON.stringify(value) : value;
-    const safeValue = typeof normalized === 'string' && /^[=+@-]/.test(normalized)
-      ? `'${normalized}`
-      : normalized;
-    return `"${String(safeValue ?? '').replace(/"/g, '""')}"`;
-  };
+  const headings = ['Date (Philippines)', 'Time (UTC+08:00)', 'Bus', 'GPS device',
+    'Latitude', 'Longitude', 'Speed (km/h)', 'Movement', 'GPS quality', 'Accuracy (m)',
+    'Route status', 'Distance from route (m)',
+    ...(includeDetails ? fields.map(([, heading]) => heading) : [])];
   const rows = records.map((record) => {
     const busInfo = busById.get(record.busId);
-    return [getGpsHistoryBusLabel(busInfo?.bus, busInfo?.index ?? 0, record.deviceId), ...fields.map(([key]) => record[key])];
+    const time = philippineCsvTime(record.capturedAt);
+    return [time.date, time.time, getGpsHistoryBusLabel(busInfo?.bus, busInfo?.index ?? 0, record.deviceId),
+      record.deviceId, record.latitude, record.longitude, record.rawSpeedKmh ?? record.speed,
+      record.motionStatus, record.gpsQuality, record.horizontalAccuracyM,
+      record.routeStatus, record.distanceFromRouteM,
+      ...(includeDetails ? fields.map(([key]) => record[key]) : [])];
   });
-  return [headings, ...rows].map((row) => row.map(quote).join(',')).join('\r\n');
+  return [headings, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
 }

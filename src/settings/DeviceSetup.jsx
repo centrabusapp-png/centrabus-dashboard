@@ -12,8 +12,11 @@ import { pendingRemoteWifiService } from './remoteWifiService';
 import LocalNetworkRecovery from './LocalNetworkRecovery';
 import LaptopWifiAccess from './LaptopWifiAccess';
 
-const tabs = [{ id: 'network', label: 'Wi-Fi & Internet', icon: Wifi },
-  { id: 'checks', label: 'Connection checks', icon: Link2 }, { id: 'gps', label: 'GPS status', icon: Radio }];
+const tabs = [
+  ...(process.env.NODE_ENV !== 'production' ? [{ id: 'network', label: 'Wi-Fi & Internet', icon: Wifi }] : []),
+  { id: 'checks', label: 'Connection checks', icon: Link2 },
+  { id: 'gps', label: 'GPS status', icon: Radio },
+];
 const buttonStyle = 'inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
 
 function CheckRow({ icon: Icon, title, value, detail, good = false }) {
@@ -27,7 +30,7 @@ export default function DeviceSetup({ authorized = false, wifiService = pendingW
   busesStatus, gpsRealtime, backendPoll, nowMs, config = BACKEND_CONFIG, checkBackend = checkSetupBackend, presenceService = pendingPresenceService,
   remoteWifiService = pendingRemoteWifiService }) {
   const [deviceId, setDeviceId] = useState('GPS-001');
-  const [tab, setTab] = useState('network');
+  const [tab, setTab] = useState(process.env.NODE_ENV !== 'production' ? 'network' : 'checks');
   const [clock, setClock] = useState(Date.now);
   const [check, setCheck] = useState({ status: 'idle' });
   const activeCheck = useRef(null);
@@ -76,7 +79,7 @@ export default function DeviceSetup({ authorized = false, wifiService = pendingW
   return <section aria-labelledby="device-setup-title" className="min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
     <div className="border-b border-slate-100 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#8E1F2F] text-white"><Monitor size={22} aria-hidden="true" /></span><div><h2 id="device-setup-title" className="text-lg font-extrabold text-slate-900">Device Setup</h2><p className="mt-1 text-sm text-slate-500">Choose a Raspberry Pi, then manage its connection in one place.</p></div></div>
+         <div className="flex min-w-0 gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#8E1F2F] text-white"><Monitor size={22} aria-hidden="true" /></span><div><h2 id="device-setup-title" className="text-lg font-extrabold text-slate-900">Device Setup</h2><p className="mt-1 text-sm text-slate-500">Choose a Raspberry Pi to review its connection checks and GPS status.</p></div></div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600"><ShieldCheck size={14} aria-hidden="true" /> Administrator only</span>
       </div>
       <div aria-label="Choose a device" className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
@@ -87,18 +90,20 @@ export default function DeviceSetup({ authorized = false, wifiService = pendingW
           {deviceId === device.id && <CheckCircle2 className="shrink-0 text-[#8E1F2F]" size={18} aria-hidden="true" />}
         </button>)}
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-slate-500">{deviceId === 'GPS-002' && !remoteWifiService.enabled
-        ? 'Pi2 Wi-Fi opens in a private laptop window through authenticated SSH. Scan first; a network switch needs your approval.'
-        : 'These are configured devices, not a Wi-Fi scan. Real network discovery and connection require an enrolled, authenticated Pi agent.'}</p>
+      <p className="mt-3 text-xs leading-relaxed text-slate-500">{process.env.NODE_ENV === 'production'
+        ? 'Configured device identities. The reports below are read-only and do not change Pi settings.'
+        : deviceId === 'GPS-002' && !remoteWifiService.enabled
+          ? 'Pi2 Wi-Fi opens in a private laptop window through authenticated SSH. Scan first; a network switch needs your approval.'
+          : 'These are configured devices, not a Wi-Fi scan. Real network discovery and connection require an enrolled, authenticated Pi agent.'}</p>
       <LocalNetworkRecovery config={config} />
       {!remoteWifiService.enabled && !(deviceId === 'GPS-002' && tab === 'network') && <DevicePresence authorized={authorized} service={presenceService} deviceId={deviceId} />}
     </div>
-    <div role="tablist" aria-label="Device setup sections" className="grid grid-cols-3 gap-1 border-b border-slate-100 px-2 pt-2 sm:px-5">
+    <div role="tablist" aria-label="Device setup sections" className={`grid ${tabs.length === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-1 border-b border-slate-100 px-2 pt-2 sm:px-5`}>
       {tabs.map(({ id, label, icon: Icon }, index) => <button key={id} ref={(element) => { tabButtons.current[index] = element; }} id={`setup-tab-${id}`} type="button" role="tab" aria-selected={tab === id} aria-controls={`setup-panel-${id}`} tabIndex={tab === id ? 0 : -1}
         onKeyDown={(event) => chooseTabWithKey(event, index)} onClick={() => setTab(id)} className={`flex min-w-0 flex-wrap items-center justify-center gap-1.5 border-b-2 px-1 py-3 text-xs font-bold sm:text-sm ${tab === id ? 'border-[#8E1F2F] text-[#8E1F2F]' : 'border-transparent text-slate-500 hover:text-slate-800'}`}><Icon size={16} aria-hidden="true" />{label}</button>)}
     </div>
     {tabs.map(({ id }) => <div key={id} id={`setup-panel-${id}`} role="tabpanel" aria-labelledby={`setup-tab-${id}`} hidden={tab !== id} tabIndex={0}>
-      {id === 'network' && tab === id && (remoteWifiService.enabled
+      {process.env.NODE_ENV !== 'production' && id === 'network' && tab === id && (remoteWifiService.enabled
         ? <RemoteWifiPanel key={deviceId} authorized={authorized} service={remoteWifiService} deviceId={deviceId} />
         : deviceId === 'GPS-002' ? <LaptopWifiAccess /> : <WifiManagement authorized={authorized} service={wifiService} deviceId={deviceId} embedded />)}
       {id === 'checks' && <div className="space-y-3 p-4 sm:p-5">
@@ -107,7 +112,7 @@ export default function DeviceSetup({ authorized = false, wifiService = pendingW
           <CheckRow icon={Globe} title="Dashboard → backend" value={apiLabel} good={reachable} detail={config.origin ? `${config.origin} · Read-only health check; does not verify database writes or Pi reachability.` : 'Configure the public backend address for this dashboard build.'} />
           <CheckRow icon={Activity} title="Fleet data" value={busesStatus === 'ready' ? 'Loaded' : busesStatus === 'error' ? 'Unavailable' : 'Not loaded'} detail="Existing dashboard data only. This is not a new database connectivity test." />
           <CheckRow icon={Link2} title="GPS Realtime channel" value={gpsRealtime?.channelStatus === 'SUBSCRIBED' ? 'Subscribed' : 'Not verified'} detail="Uses the existing GPS subscription. A subscribed channel does not prove this Pi is sending fresh fixes." />
-          <CheckRow icon={Wifi} title={`${deviceId} Internet`} value="See device report" detail="Use Wi-Fi & Internet for authenticated device reports. A reachable backend or fresh GPS is not proof of the Pi’s Wi-Fi status." />
+          {process.env.NODE_ENV !== 'production' && <CheckRow icon={Wifi} title={`${deviceId} Internet`} value="See device report" detail="Use Wi-Fi & Internet for authenticated device reports. A reachable backend or fresh GPS is not proof of the Pi’s Wi-Fi status." />}
         </div>
         <p role="status" className="text-xs leading-relaxed text-slate-600">{check.status === 'failed' ? 'Backend check failed. Check the address, running server and browser access. No device changes were sent.' : check.status === 'checking' ? 'Checking the configured backend without sending credentials…' : 'No LAN scan, device command or network change is performed by these checks.'}</p>
       </div>}

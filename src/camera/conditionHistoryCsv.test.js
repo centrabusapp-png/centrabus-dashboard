@@ -29,7 +29,7 @@ test('exports one chronological row per historical capture, six labelled values,
   const result = buildConditionHistoryCsv({ ...request(), frames: [frame, fixture('trip:2')], snapshot: range.to });
   expect(result.rows).toBe(2); expect(result.captures).toBe(2); expect(result.readingCount).toBe(12);
   expect(result.csv.trim().split('\r\n')).toHaveLength(3);
-  expect(result.csv).toContain('"2026-10-23","09:02:03.000","BUS 159","Pi2 (GPS-002)"');
+  expect(result.csv).toContain('"2026-10-23","09:02:03 AM PHT","BUS 159","Pi2 (GPS-002)"');
   expect(result.csv).toContain('"0","0","0","","0","0","5"');
   expect(result.csv).not.toMatch(/Uncertain|Not verified|Physical accuracy/);
   expect(result.csv).not.toMatch(/trip:1|test-version|captured_at_utc/);

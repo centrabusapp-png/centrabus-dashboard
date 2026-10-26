@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, X } from 'lucide-react';
+import { CalendarDays, Download, X } from 'lucide-react';
 import { conditionPeriod, defaultConditionPeriod, downloadConditionHistory } from './conditionHistoryCsv';
 
 const messages = {
@@ -47,7 +47,7 @@ function ExportDialog({ bus, service, onClose, onDownloaded, download, clock }) 
   };
   return <dialog ref={dialog} className="condition-export-dialog" aria-labelledby="condition-export-title" onCancel={event => { event.preventDefault(); onClose(); }}>
     <form onSubmit={submit}>
-      <header><div><h2 id="condition-export-title">Export trip readings</h2><p>{bus.plate || bus.plateNumber || bus.number || 'Selected bus'}</p></div>
+      <header><div><h2 id="condition-export-title">Choose date range</h2><p>{bus.plate || bus.plateNumber || bus.number || 'Selected bus'}</p></div>
         <button type="button" aria-label="Close CSV export" onClick={onClose}><X size={18} /></button></header>
       <p className="condition-export-note">Saved readings only · Philippine time (UTC+8)</p>
       <div className="condition-export-period">
@@ -67,13 +67,51 @@ function ExportDialog({ bus, service, onClose, onDownloaded, download, clock }) 
   </dialog>;
 }
 
-export default function ConditionHistoryExport({ bus, service, download = downloadConditionHistory, clock = Date.now, buttonLabel = 'Download CSV' }) {
+export default function ConditionHistoryExport({ bus, service, download = downloadConditionHistory, clock = Date.now, buttonLabel = "Today's CSV" }) {
   const [open, setOpen] = useState(false), [notice, setNotice] = useState('');
+  const [quick, setQuick] = useState({ busy: false, count: 0, error: '' });
+  const pending = useRef(null);
   const enabled = Boolean(bus?.id && service?.enabled);
+  useEffect(() => () => pending.current?.abort(), []);
+  const downloadToday = async () => {
+    if (!enabled || pending.current) return;
+    const now = clock();
+    const period = defaultConditionPeriod(now);
+    let range;
+    try { range = conditionPeriod(period.from, period.to); }
+    catch { setQuick({ busy: false, count: 0, error: messages['invalid-period'] }); return; }
+    const controller = new AbortController(); pending.current = controller;
+    setNotice(''); setQuick({ busy: true, count: 0, error: '' });
+    try {
+      const result = await service.exportCsv({
+        busId: bus.id,
+        busLabel: bus.plate || bus.plateNumber || bus.number || bus.id,
+        ...range,
+        includeDetails: false,
+        now,
+        signal: controller.signal,
+        onProgress: count => { if (!controller.signal.aborted) setQuick({ busy: true, count, error: '' }); },
+      });
+      if (controller.signal.aborted) return;
+      download(result); setNotice(`CSV downloaded · ${result.captures} captures`);
+      setQuick({ busy: false, count: 0, error: '' });
+    } catch (error) {
+      if (!controller.signal.aborted) setQuick({ busy: false, count: 0,
+        error: messages[error.message] || 'Readings could not be exported. Check the backend connection and retry. No partial file was downloaded.' });
+    } finally { if (pending.current === controller) pending.current = null; }
+  };
   return <>
-    <button type="button" onClick={() => { setNotice(''); setOpen(true); }} disabled={!enabled}
-      title={enabled ? 'Download saved readings for a trip period' : 'Connect the backend to export saved readings'}><Download size={14} />{buttonLabel}</button>
+    <span className="condition-export-actions">
+      <button type="button" onClick={downloadToday} disabled={!enabled || quick.busy}
+        title={enabled ? "Download today's saved readings · Philippine time (UTC+8)" : 'Connect the backend to export saved readings'}>
+        <Download size={14} />{quick.busy ? 'Preparing CSV…' : buttonLabel}
+      </button>
+      <button type="button" className="condition-export-secondary" onClick={() => { setNotice(''); setQuick({ busy: false, count: 0, error: '' }); setOpen(true); }}
+        disabled={!enabled || quick.busy} title="Choose another date or time range"><CalendarDays size={13} />Other dates</button>
+    </span>
     {notice && <span role="status" className="condition-export-notice">{notice}</span>}
+    {quick.busy && <span role="status" className="condition-export-notice">Loading {quick.count.toLocaleString()} saved captures…</span>}
+    {quick.error && <span role="alert" className="condition-export-error-inline">{quick.error}</span>}
     {open && enabled && <ExportDialog bus={bus} service={service} download={download} clock={clock}
       onDownloaded={setNotice} onClose={() => setOpen(false)} />}
   </>;
