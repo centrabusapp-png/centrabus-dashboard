@@ -3,6 +3,8 @@
 /dist/
 /build/
 /coverage/
+/.launch-check/
+/.test-tmp/
 /.vercel/
 .pnp*
 *.log

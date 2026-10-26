@@ -26,6 +26,8 @@
     "build:vercel": "node scripts/check-deployment-config.cjs && vite build",
     "check:deployment": "node scripts/check-deployment-config.cjs",
     "test:deployment": "node --test scripts/*.test.cjs",
+    "check:release": "node scripts/check-release.cjs",
+    "ready:launch": "node scripts/ready-launch.cjs",
     "preview": "vite preview",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

@@ -90,6 +90,10 @@
     {
       "source": "/system-health",
       "destination": "/index.html"
+    },
+    {
+      "source": "/:path((?!(?:api|auth|rest|realtime|storage|functions|health|readyz|assets)(?:/|$)).*)",
+      "destination": "/index.html"
     }
   ]
 }

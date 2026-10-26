@@ -16,6 +16,7 @@ backend
 superbus
 sql
 qa
+.launch-check
 **/*.before-*
 **/__pycache__
 **/*.pyc

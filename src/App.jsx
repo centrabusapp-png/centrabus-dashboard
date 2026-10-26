@@ -25,8 +25,6 @@ import {
   ShieldCheck,
   Thermometer,
   TriangleAlert,
-  Wifi,
-  WifiOff,
   X,
 } from 'lucide-react';
 import { Circle, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
@@ -712,6 +710,19 @@ export function getGpsSampleTimestamp(gps) {
   };
 
   return parseTimestamp(gps?.gpsUpdatedAt) ?? parseTimestamp(gps?.updatedAt);
+}
+
+export function deriveBusConnectionStatus(gps, nowMs = Date.now()) {
+  const receivedAtMs = getGpsSampleTimestamp({ gpsUpdatedAt: gps?.deviceUpdatedAt });
+  if (!Number.isFinite(receivedAtMs) || receivedAtMs <= 0
+      || receivedAtMs > nowMs + GPS_DISPLAY_MAX_FUTURE_SKEW_MS) {
+    return { label: 'Waiting for packet', tone: 'neutral', ageMs: null };
+  }
+
+  const ageMs = Math.max(0, nowMs - receivedAtMs);
+  if (ageMs <= SYSTEM_HEALTH_THRESHOLDS.deviceOnlineMs) return { label: 'Bus online', tone: 'healthy', ageMs };
+  if (ageMs <= SYSTEM_HEALTH_THRESHOLDS.deviceDelayedMs) return { label: 'Connection delayed', tone: 'warning', ageMs };
+  return { label: 'No recent packet', tone: 'critical', ageMs };
 }
 
 function getLatestHealthTimestamp(gpsRecords, fieldNames) {
@@ -1487,22 +1498,9 @@ function StatusBadge({ value }) {
   return <span className={`rounded-full border px-2.5 py-0.5 text-sm font-semibold ${getStatusBadgeStyle(value)}`}>{value}</span>;
 }
 
-export function Header({ currentTime, activePageTitle, activePageSubtitle, alertCount, systemHealth, connectivityStatus, alerts, buses = [], onViewAlert, onToggleSidebar, user }) {
+export function Header({ currentTime, activePageTitle, activePageSubtitle, alertCount, alerts, buses = [], onViewAlert, onToggleSidebar, user }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const notifications = alerts.filter(isUnacknowledgedAlert);
-  const connectivityStyles = {
-    healthy: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    degraded: 'border-amber-200 bg-amber-50 text-amber-800',
-    offline: 'border-slate-300 bg-slate-100 text-slate-700',
-    neutral: 'border-slate-200 bg-slate-50 text-slate-600',
-  };
-  const healthStyles = {
-    healthy: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    warning: 'border-amber-200 bg-amber-50 text-amber-800',
-    critical: 'border-red-200 bg-red-50 text-red-800',
-    neutral: 'border-slate-200 bg-slate-50 text-slate-700',
-  };
-  const ConnectivityIcon = connectivityStatus.tone === 'offline' ? WifiOff : Wifi;
   return (
     <header className="relative flex min-h-[72px] flex-wrap items-center justify-between gap-4 rounded-[18px] border border-slate-200/80 bg-white px-5 py-3 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
       <div className="flex min-w-0 items-center gap-3">
@@ -1516,17 +1514,6 @@ export function Header({ currentTime, activePageTitle, activePageSubtitle, alert
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-right text-xs text-slate-500">
           <div className="font-bold text-slate-800">{currentTime.toLocaleDateString()}</div>
           <div className="font-medium">{currentTime.toLocaleTimeString()}</div>
-        </div>
-        <div title={systemHealth.latestSignalAt ? formatTimestamp(systemHealth.latestSignalAt) : 'No verified system signal yet'} className={`hidden rounded-xl border px-3 py-1.5 text-xs sm:block ${healthStyles[systemHealth.overall.tone]}`}>
-          <div className="font-extrabold">● {systemHealth.overall.label}</div>
-          <div className="font-semibold text-slate-700">Latest real signal: {systemHealth.latestSignalAt ? formatHealthAge({ timestampMs: systemHealth.latestSignalAt }, currentTime.getTime()) : 'waiting'}</div>
-        </div>
-        <div
-          title={connectivityStatus.detail}
-          className={`hidden h-10 items-center gap-2 rounded-xl border px-3 text-xs font-bold md:flex ${connectivityStyles[connectivityStatus.tone]}`}
-        >
-          <ConnectivityIcon size={16} />
-          <span>{connectivityStatus.label}</span>
         </div>
         <button
           type="button"
@@ -2432,7 +2419,14 @@ export function SummaryCards({ counts, busesLoading, onNavigate }) {
 function ActiveBusSummary({ bus, onNavigate, nowMs, onClose }) {
   const coordinates = getBusCoordinates(bus);
   const gpsFreshness = getGpsFreshness(bus, nowMs);
+  const connectionStatus = deriveBusConnectionStatus(bus?.gps, nowMs);
   const liveSpeed = rawGpsSpeed(bus?.gps);
+  const connectionStatusStyles = {
+    healthy: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    warning: 'border-amber-200 bg-amber-50 text-amber-700',
+    critical: 'border-red-200 bg-red-50 text-red-700',
+    neutral: 'border-slate-200 bg-slate-50 text-slate-600',
+  };
 
   return (
     <section className="flex min-h-0 w-full min-w-0 flex-col rounded-[18px] border border-slate-200/80 bg-white p-[18px] shadow-sm">
@@ -2457,6 +2451,7 @@ function ActiveBusSummary({ bus, onNavigate, nowMs, onClose }) {
             {visibleRouteName(bus.routeName) && <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Route</div><div className="mt-1 font-bold text-slate-700">{visibleRouteName(bus.routeName)}</div></div>}
             <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Location</div><div className="mt-1 font-bold text-slate-700">{coordinates ? `${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)}` : 'Unavailable'}</div></div>
             <div><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Speed</div><div className="mt-1 font-bold text-slate-700">{Number.isFinite(liveSpeed) ? `${liveSpeed} km/h` : 'Unavailable'}</div><div className="text-[11px] text-slate-500">Raw GPS · Motion at fix: {rawGpsMotion(bus.gps)}</div></div>
+            <div title="Connection status uses the last device packet received by the backend; Wi-Fi signal strength is not reported."><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bus connection</div><div className="mt-1"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-extrabold ${connectionStatusStyles[connectionStatus.tone]}`}>{connectionStatus.label}</span></div><div className="mt-1 text-[11px] text-slate-500">{connectionStatus.ageMs == null ? 'Packet time unavailable' : `Last packet · ${formatCompactGpsAge(connectionStatus.ageMs)}`}</div></div>
             <div title={formatGpsLastUpdate(gpsFreshness)}><div className="text-xs font-semibold uppercase tracking-wide text-slate-400">GPS</div><div className="mt-1 font-bold text-slate-700">{coordinates ? `${gpsFreshness.status} · ${formatCompactGpsAge(gpsFreshness.ageMs)}` : 'No GPS Data'}</div></div>
           </div>
           <RouteMonitoringSection gps={bus.gps} nowMs={nowMs} />
@@ -4892,10 +4887,6 @@ export function AuthorizedDashboard({ user }) {
     () => telemetryBuses.map((bus) => ({ ...bus, gps: gpsByBusId[bus.id] || null })),
     [telemetryBuses, gpsByBusId],
   );
-  const connectivityStatus = useMemo(
-    () => deriveDashboardConnectivityStatus(systemHealth.backend),
-    [systemHealth.backend],
-  );
   const synchronizedSamples = useMemo(() => buildSynchronizedSampleData(telemetryBuses), [telemetryBuses]);
   const { trips } = synchronizedSamples;
   const [alertChanges, setAlertChanges] = useState({});
@@ -4969,7 +4960,7 @@ export function AuthorizedDashboard({ user }) {
         onLogout={signOutActiveUser}
       />
       <div className={`main-content dashboard-page dashboard-content flex flex-col gap-5 pb-10 ${activePage === 'dashboard' ? 'overview-wide-shell' : ''} ${activePage === 'live-camera' ? 'camera-monitor-shell' : ''} ${activePage === 'vehicle-condition' ? 'condition-monitor-shell' : ''} ${sidebarOpen ? 'sidebar-expanded' : ''}`}>
-        <Header currentTime={currentTime} activePageTitle={pageHeaders[activePage]?.title} activePageSubtitle={pageHeaders[activePage]?.subtitle} alertCount={activeAlertCount} systemHealth={systemHealth} connectivityStatus={connectivityStatus} alerts={alerts} buses={telemetryBuses} onToggleSidebar={() => setSidebarOpen((current) => !current)} onViewAlert={(alert) => navigate({ page: 'alerts', bus: alert.busNumber, alert: alert.id, alertType: getAlertCategory(alert) === 'Route' ? 'route-deviation' : undefined })} user={user} />
+        <Header currentTime={currentTime} activePageTitle={pageHeaders[activePage]?.title} activePageSubtitle={pageHeaders[activePage]?.subtitle} alertCount={activeAlertCount} alerts={alerts} buses={telemetryBuses} onToggleSidebar={() => setSidebarOpen((current) => !current)} onViewAlert={(alert) => navigate({ page: 'alerts', bus: alert.busNumber, alert: alert.id, alertType: getAlertCategory(alert) === 'Route' ? 'route-deviation' : undefined })} user={user} />
         {activePage === 'settings' ? <SettingsPage user={user} onLogout={signOutActiveUser} buses={buses} busesStatus={busesStatus}
           gpsByBusId={gpsByBusId} gpsRealtime={gpsRealtime} backendPoll={backendPoll} gpsNowMs={gpsNowMs} /> : pageContent}
       </div>

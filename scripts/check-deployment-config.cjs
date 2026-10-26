@@ -29,12 +29,13 @@ function validateDeploymentConfig(env) {
   for (const flag of ['VITE_CAMERA_READINGS_ENABLED', 'VITE_WIFI_STATUS_ENABLED']) {
     if (env[flag] != null && env[flag] !== '' && env[flag] !== 'false') errors.push(`${flag} must remain false for this release.`);
   }
+  for (const flag of ['VITE_REMOTE_WIFI_ENABLED', 'VITE_DEVICE_PRESENCE_ENABLED']) {
+    if (env[flag] && env[flag] !== 'false') errors.push(`${flag} must remain false in this cloud release.`);
+  }
   if (env.VITE_CAMERA_FRAMES_ENABLED === 'true' && env.VITE_CLOUD_CAMERA_MODE !== 'approved-cloud-gps-camera') {
     errors.push('Cloud camera frames require the explicit approved-cloud-gps-camera mode.');
   }
-  if (env.VITE_CLOUD_CAMERA_MODE && env.VITE_CLOUD_CAMERA_MODE !== 'approved-cloud-gps-camera') {
-    errors.push('Unknown public cloud camera mode.');
-  }
+  if (env.VITE_CLOUD_CAMERA_MODE && env.VITE_CLOUD_CAMERA_MODE !== 'approved-cloud-gps-camera') errors.push('Unknown cloud camera mode.');
   if (Object.keys(env).some((name) => name.startsWith('VITE_')
       && /SECRET|PASSWORD|PRIVATE|SERVICE.?ROLE|DEVICE.?KEY|ACCESS.?TOKEN|REFRESH.?TOKEN/i.test(name))) {
     errors.push('Remove private credential variables from the public VITE_ namespace.');
@@ -43,7 +44,13 @@ function validateDeploymentConfig(env) {
 }
 
 if (require.main === module) {
-  const errors = validateDeploymentConfig(process.env);
+  const errors = [...require('./release-files.cjs').validateReleaseFiles(require('node:path').resolve(__dirname, '..')),
+    ...validateDeploymentConfig(process.env)];
+  try {
+    const profile = require('../deployment/launch-profile.json');
+    if (new URL(process.env.VITE_BACKEND_URL).origin !== profile.backendOrigin) errors.push('VITE_BACKEND_URL differs from deployment/launch-profile.json.');
+    if (new URL(process.env.VITE_SUPABASE_URL).origin !== profile.supabaseOrigin) errors.push('VITE_SUPABASE_URL differs from deployment/launch-profile.json.');
+  } catch { /* Shape errors above explain missing/malformed values. */ }
   if (errors.length) {
     console.error('Deployment configuration rejected (values redacted):');
     for (const message of errors) console.error(`- ${message}`);

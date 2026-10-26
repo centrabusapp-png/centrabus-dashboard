@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "repository": "https://github.com/centrabusapp-png/centrabus-dashboard.git",
+  "productionBranch": "codex/pi2-cloud-dashboard",
+  "backendOrigin": "https://centrabus-backend.onrender.com",
+  "supabaseOrigin": "https://dagvfzvysdxeapateuwh.supabase.co",
+  "nodeMajor": 22,
+  "framework": "vite",
+  "rootDirectory": ".",
+  "installCommand": "npm ci --ignore-scripts",
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "dist",
+  "spaFallback": "/:path((?!(?:api|auth|rest|realtime|storage|functions|health|readyz|assets)(?:/|$)).*)",
+  "defaultFlags": {
+    "VITE_CAMERA_READINGS_ENABLED": "false",
+    "VITE_WIFI_STATUS_ENABLED": "false",
+    "VITE_CAMERA_FRAMES_ENABLED": "true",
+    "VITE_CLOUD_CAMERA_MODE": "approved-cloud-gps-camera",
+    "VITE_REMOTE_WIFI_ENABLED": "false",
+    "VITE_DEVICE_PRESENCE_ENABLED": "false"
+  }
+}
