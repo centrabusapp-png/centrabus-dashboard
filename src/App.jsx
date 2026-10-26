@@ -767,6 +767,35 @@ export function deriveBackendHealthStatus(backendPoll, nowMs = Date.now()) {
   return createHealthSignal('ONLINE', lastSuccessAt, nowMs);
 }
 
+export function deriveDashboardConnectivityStatus(backendHealth = {}) {
+  const status = backendHealth?.status || 'CHECKING';
+  if (status === 'ONLINE') return {
+    label: 'Internet connected',
+    detail: 'The dashboard can reach its HTTPS backend. Bus GPS freshness is shown separately.',
+    tone: 'healthy',
+  };
+  if (status === 'DEGRADED') return {
+    label: 'Internet connection unstable',
+    detail: 'Recent HTTPS backend checks failed. The network or backend may be unstable.',
+    tone: 'degraded',
+  };
+  if (status === 'OFFLINE') return {
+    label: 'Cloud unreachable',
+    detail: 'The dashboard cannot reach its HTTPS backend. Check internet access and backend status.',
+    tone: 'offline',
+  };
+  if (status === 'NOT CONFIGURED') return {
+    label: 'Backend not configured',
+    detail: 'The dashboard HTTPS backend URL is not configured.',
+    tone: 'neutral',
+  };
+  return {
+    label: 'Checking internet',
+    detail: 'Waiting for the first HTTPS backend health check.',
+    tone: 'neutral',
+  };
+}
+
 export function deriveRealtimeHealth(realtime = {}, nowMs = Date.now()) {
   const channelStatus = realtime.channelStatus || 'PENDING';
   const status = {
@@ -4863,16 +4892,10 @@ export function AuthorizedDashboard({ user }) {
     () => telemetryBuses.map((bus) => ({ ...bus, gps: gpsByBusId[bus.id] || null })),
     [telemetryBuses, gpsByBusId],
   );
-  const connectivityStatus = useMemo(() => {
-    if (busesStatus === 'loading') return { label: 'Checking connectivity', detail: 'Loading fleet connectivity', tone: 'neutral' };
-    if (busesWithGps.length === 0) return { label: 'No buses', detail: 'No registered buses to monitor', tone: 'neutral' };
-    const gpsStates = busesWithGps.map((bus) => getGpsFreshness(bus, gpsNowMs).status);
-    const onlineCount = gpsStates.filter((status) => status === 'Online').length;
-    const delayedCount = gpsStates.filter((status) => status === 'Delayed').length;
-    if (onlineCount === busesWithGps.length) return { label: 'All connected', detail: `${onlineCount} of ${busesWithGps.length} buses reporting live GPS`, tone: 'healthy' };
-    if (onlineCount + delayedCount > 0) return { label: 'Connectivity degraded', detail: `${onlineCount} online, ${delayedCount} delayed, ${busesWithGps.length - onlineCount - delayedCount} unavailable`, tone: 'degraded' };
-    return { label: 'GPS offline', detail: `No live GPS from ${busesWithGps.length} registered bus${busesWithGps.length === 1 ? '' : 'es'}`, tone: 'offline' };
-  }, [busesStatus, busesWithGps, gpsNowMs]);
+  const connectivityStatus = useMemo(
+    () => deriveDashboardConnectivityStatus(systemHealth.backend),
+    [systemHealth.backend],
+  );
   const synchronizedSamples = useMemo(() => buildSynchronizedSampleData(telemetryBuses), [telemetryBuses]);
   const { trips } = synchronizedSamples;
   const [alertChanges, setAlertChanges] = useState({});
